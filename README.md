@@ -1,5 +1,7 @@
 # ASL Racer
 
+[![CI](https://github.com/GaelCT/FastASL/actions/workflows/ci.yml/badge.svg)](https://github.com/GaelCT/FastASL/actions/workflows/ci.yml)
+
 A typing race game with American Sign Language (ASL) integration.
 
 ## Project Structure
