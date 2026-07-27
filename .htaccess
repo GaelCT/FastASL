@@ -1,0 +1,35 @@
+# ASL Racer — Root .htaccess
+
+# Enable URL rewriting
+RewriteEngine On
+
+# Deny access to .env files (critical!)
+<FilesMatch "^\.env">
+    Order Deny,Allow
+    Deny from all
+</FilesMatch>
+
+# Deny access to sensitive files
+<FilesMatch "\.(sql|md|log)$">
+    Order Deny,Allow
+    Deny from all
+</FilesMatch>
+
+# Route API requests to backend/
+RewriteCond %{REQUEST_URI} !^/backend/
+RewriteRule ^api/(.*)$ /backend/index.php [L,QSA]
+
+# Prevent directory listing
+Options -Indexes
+
+# PHP settings
+<IfModule mod_php.c>
+    php_flag display_errors Off
+    php_flag display_startup_errors Off
+    php_flag log_errors On
+    php_value error_reporting E_ALL
+    php_flag expose_php Off
+    php_value session.cookie_httponly 1
+    php_value session.cookie_samesite Strict
+    php_value session.cookie_secure 1
+</IfModule>

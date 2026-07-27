@@ -1,0 +1,36 @@
+# Environment variables
+.env
+
+# Logs
+logs/
+*.log
+
+# Cache
+cache/
+
+# OS files
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+
+# IDE
+.vscode/
+.idea/
+*.sublime-*
+
+# Composer
+/vendor/
+composer.lock
+
+# PHP
+.php_cs.cache
+.phpunit.result.cache
+
+# Archive snapshots
+ASL-Revive-zip/
+ASL-Revive-zip.zip
+
+# Nested git repo
+FastASL/

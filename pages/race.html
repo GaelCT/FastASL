@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ASL Racer | Active Track</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="../style/main.css">
+</head>
+<body>
+
+    <div id="game-screen" class="screen active">
+        <div class="game-hud">
+            <div class="stat-box">
+                <div class="stat-label">TIME</div>
+                <div id="timer" class="stat-value">60</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-label">WPM</div>
+                <div id="wpm" class="stat-value">0</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-label">STREAK</div>
+                <div id="streak" class="stat-value text-accent">0</div>
+            </div>
+        </div>
+
+        <div class="game-main">
+            <div id="sentence-display" class="sentence-container"></div>
+            <div id="prompt-sub">SIGN THE HIGHLIGHTED LETTER</div>
+        </div>
+
+        <div class="webcam-section">
+            <div class="webcam-container">
+                <video id="webcam" playsinline></video>
+                <canvas id="output-canvas"></canvas>
+                <div class="tracking-status" id="tracking-status">INITIALIZING CAMERA...</div>
+            </div>
+            <div class="api-status" id="api-status">
+                <span class="status-dot"></span>
+                DEV MODE: Keyboard acts as local vision classification override
+            </div>
+        </div>
+    </div>
+
+    <div id="end-screen" class="screen">
+        <div class="container">
+            <h1>RACE COMPLETE</h1>
+
+            <div class="results-grid">
+                <div class="result-card ui-panel">
+                    <div class="stat-label">SPEED</div>
+                    <div id="final-wpm" class="big-stat">0 WPM</div>
+                </div>
+                <div class="result-card ui-panel">
+                    <div class="stat-label">MAX STREAK</div>
+                    <div id="final-streak" class="big-stat">0</div>
+                </div>
+                <div class="result-card ui-panel">
+                    <div class="stat-label">ACCURACY</div>
+                    <div id="final-accuracy" class="big-stat">0%</div>
+                </div>
+            </div>
+
+            <div class="save-score-section">
+                <input type="text" id="player-name" class="ui-input" placeholder="CONFIRM CALLSIGN" maxlength="12">
+                <button class="action-btn" onclick="saveAndShowLeaderboard()">SUBMIT DATA</button>
+            </div>
+
+            <div class="end-actions">
+                <button class="action-btn secondary" onclick="navigateToDashboard()">MAIN MENU</button>
+                <button class="action-btn" onclick="restartGame()">RACE AGAIN</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+    <script src="race.js"></script>
+</body>
+</html>
