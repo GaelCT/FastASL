@@ -1,0 +1,13 @@
+{
+    "name": "fastasl",
+    "version": "3.1.0",
+    "private": true,
+    "description": "ASL Racer - A typing race game with ASL integration",
+    "scripts": {
+        "lint": "eslint JS/ --ext .js",
+        "lint:fix": "eslint JS/ --ext .js --fix"
+    },
+    "devDependencies": {
+        "eslint": "^9.39.5"
+    }
+}

@@ -22,6 +22,9 @@ Thumbs.db
 
 # Composer
 /vendor/
+
+# Node
+node_modules/
 composer.lock
 
 # PHP
