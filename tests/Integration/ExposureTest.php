@@ -105,14 +105,26 @@ final class ExposureTest extends TestCase
      * Places canary files with sensitive extensions directly inside
      * public/. They must be refused even though they are physically
      * within the document root (defense in depth, mirrors .htaccess).
+     * Setup is mandatory and non-destructive: a pre-existing file or a
+     * failed write fails the suite instead of silently false-passing.
      */
     private static function createExposureFiles(string $public): void
     {
         foreach (['sql', 'log', 'bak', 'php'] as $extension) {
             $file = $public . '/exposure-canary.' . $extension;
-            if (@file_put_contents($file, self::CANARY_MARKER)) {
-                self::$exposureFiles[] = $file;
+
+            if (file_exists($file)) {
+                self::fail("Exposure test file already exists: {$file}");
             }
+
+            if (file_put_contents($file, self::CANARY_MARKER) === false) {
+                self::fail("Could not create exposure test file: {$file}");
+            }
+            if (file_get_contents($file) !== self::CANARY_MARKER) {
+                self::fail("Exposure test file does not contain the expected marker: {$file}");
+            }
+
+            self::$exposureFiles[] = $file;
         }
     }
 

@@ -15,6 +15,10 @@ RewriteRule ^api(?:/.*)?$ index.php [L,QSA]
 <FilesMatch "\.(sql|md|log|env|bak|old|tmp|yaml|yml)$">
     Require all denied
 </FilesMatch>
+# Only the front controller may be executed as PHP
+<FilesMatch "^(?!index\.php$).*\.php$">
+    Require all denied
+</FilesMatch>
 
 # Prevent directory listing
 Options -Indexes
