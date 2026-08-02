@@ -112,6 +112,31 @@ npm install          # install frontend tooling
 npm run lint         # lint JavaScript
 ```
 
+### Deployment permissions (H-13)
+
+Set explicit permissions at deployment time — do not inherit archive metadata:
+
+```bash
+# Source files: read-only for the runtime user
+find backend public database docs tests scripts -type f -exec chmod 0644 {} \;
+find backend public database docs tests scripts -type d -exec chmod 0755 {} \;
+
+# Secrets: owner-only
+chmod 0600 .env
+
+# Runtime directories: writable only by the application account
+mkdir -p var/log var/cache
+chown -R <app-user>:<app-group> var
+chmod 0750 var var/log var/cache
+```
+
+Verify before release:
+
+```bash
+bash scripts/check-permissions.sh        # Linux/macOS
+powershell -File scripts/check-permissions.ps1   # Windows
+```
+
 ## Project Audit
 
 Three companion documents provide a detailed security and quality review:
