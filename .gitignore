@@ -23,6 +23,9 @@ Thumbs.db
 # Composer
 /vendor/
 
+# Node
+node_modules/
+
 # PHP
 .php_cs.cache
 .phpunit.result.cache
