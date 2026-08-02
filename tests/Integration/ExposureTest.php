@@ -28,6 +28,8 @@ final class ExposureTest extends TestCase
         $root = dirname(__DIR__, 2);
         $public = $root . '/public';
 
+        self::provisionEnvFile($root);
+
         $command = sprintf(
             'php -S %s:%d -t %s %s',
             self::HOST,
@@ -48,6 +50,22 @@ final class ExposureTest extends TestCase
         }
 
         self::waitForServerReady();
+    }
+
+    /**
+     * Config::load() throws when .env is missing, so CI needs a
+     * minimal .env provisioned from .env.example before the server starts.
+     */
+    private static function provisionEnvFile(string $root): void
+    {
+        if (file_exists($root . '/.env')) {
+            return;
+        }
+
+        $example = $root . '/.env.example';
+        if (file_exists($example)) {
+            copy($example, $root . '/.env');
+        }
     }
 
     public static function tearDownAfterClass(): void
