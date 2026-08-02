@@ -2,10 +2,11 @@
 # The web server document root MUST point here (public/).
 # Everything else in the repository is outside the document root.
 
-# Block every PHP path except the root front controller
-# (path-aware and case-insensitive, unlike <FilesMatch> basename matching)
-RewriteEngine On
-RewriteRule ^(?!index\.php$).*\.php(?:/.*)?$ - [F,NC,L]
+# Permit only the exact lowercase root front controller
+RewriteRule ^index\.php$ - [L]
+
+# Reject every other PHP path, including case variants and PATH_INFO
+RewriteRule \.php(?:/.*)?$ - [F,NC,L]
 
 # Route API requests to the front controller
 RewriteCond %{REQUEST_FILENAME} !-f

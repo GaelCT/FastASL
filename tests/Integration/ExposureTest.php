@@ -113,8 +113,19 @@ final class ExposureTest extends TestCase
      */
     private static function createExposureFiles(string $public): void
     {
-        foreach (['sql', 'log', 'bak', 'php', 'PHP'] as $extension) {
-            $file = $public . '/exposure-canary.' . $extension;
+        // Distinct basenames: on case-insensitive filesystems (Windows,
+        // default macOS) exposure-canary.php and exposure-canary.PHP would
+        // collide, so the uppercase variant uses its own name.
+        $canaries = [
+            'exposure-canary.sql',
+            'exposure-canary.log',
+            'exposure-canary.bak',
+            'exposure-canary.php',
+            'exposure-uppercase.PHP',
+        ];
+
+        foreach ($canaries as $name) {
+            $file = $public . '/' . $name;
 
             if (file_exists($file) || is_link($file)) {
                 self::fail("Exposure test path already exists: {$file}");
@@ -234,7 +245,7 @@ final class ExposureTest extends TestCase
         yield 'exposure log in root' => ['/exposure-canary.log'];
         yield 'exposure backup in root' => ['/exposure-canary.bak'];
         yield 'exposure php script in root' => ['/exposure-canary.php'];
-        yield 'exposure uppercase php in root' => ['/exposure-canary.PHP'];
+        yield 'exposure uppercase php in root' => ['/exposure-uppercase.PHP'];
     }
 
     #[DataProvider('sensitivePathProvider')]
