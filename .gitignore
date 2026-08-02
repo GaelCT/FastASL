@@ -22,11 +22,11 @@ Thumbs.db
 
 # Composer
 /vendor/
-composer.lock
 
 # PHP
 .php_cs.cache
 .phpunit.result.cache
+.phpunit.cache/
 
 # Archive snapshots
 ASL-Revive-zip/
