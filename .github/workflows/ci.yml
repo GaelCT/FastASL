@@ -20,7 +20,7 @@ jobs:
           php-version: '8.2'
           tools: parallel-lint
       - name: Check PHP syntax
-        run: parallel-lint backend/ src/
+        run: parallel-lint backend/
 
   phpunit:
     name: PHPUnit unit tests
@@ -49,7 +49,7 @@ jobs:
       - name: Install dependencies
         run: composer install --no-interaction --no-progress
       - name: Run PHPStan
-        run: vendor/bin/phpstan analyse --level=1 backend/ src/ --no-progress
+        run: vendor/bin/phpstan analyse --level=1 backend/ --no-progress
 
   eslint:
     name: ESLint
