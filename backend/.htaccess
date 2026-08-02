@@ -1,17 +1,10 @@
-# Deny direct access to PHP files except the main entry point
-# This prevents attackers from directly accessing utility/config files
-<FilesMatch "\.(php|ini|yaml|yml|log|md)$">
-    Order Deny,Allow
-    Deny from all
-</FilesMatch>
+# ASL Racer — backend/.htaccess
+# The backend directory must NEVER be inside the web document root.
+# This file is defense in depth: deny all direct access.
 
-# Allow the main entry point
-<FilesMatch "^(index|validation)\.php$">
-    Order Allow,Deny
-    Allow from all
-</FilesMatch>
+Order Deny,Allow
+Deny from all
 
-# Deny access to hidden files
 <FilesMatch "^\.">
     Order Deny,Allow
     Deny from all

@@ -2,33 +2,33 @@
 
 /**
  * ASL Racer — Backend API v3.1
- * Security-hardened MVC architecture with JWT authentication
+ * Front controller — the only PHP file exposed publicly.
  */
 
 header('Content-Type: application/json; charset=utf-8');
 
 // ==================== MIDDLEWARE ====================
-require_once __DIR__ . '/middleware/CorsMiddleware.php';
-require_once __DIR__ . '/middleware/SecurityMiddleware.php';
+require_once __DIR__ . '/../backend/middleware/CorsMiddleware.php';
+require_once __DIR__ . '/../backend/middleware/SecurityMiddleware.php';
 
 CorsMiddleware::handle();
 SecurityMiddleware::handle();
 
 // ==================== DEPENDENCIES ====================
-require_once __DIR__ . '/controllers/AuthController.php';
-require_once __DIR__ . '/controllers/UserController.php';
-require_once __DIR__ . '/controllers/LeaderboardController.php';
-require_once __DIR__ . '/utils/Validator.php';
-require_once __DIR__ . '/utils/Response.php';
+require_once __DIR__ . '/../backend/controllers/AuthController.php';
+require_once __DIR__ . '/../backend/controllers/UserController.php';
+require_once __DIR__ . '/../backend/controllers/LeaderboardController.php';
+require_once __DIR__ . '/../backend/utils/Validator.php';
+require_once __DIR__ . '/../backend/utils/Response.php';
 
 // ==================== ROUTING ====================
 $method = $_SERVER['REQUEST_METHOD'];
 $path = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH);
 
-// Normalize path: strip base path prefixes
-$path = str_replace('/backend/index.php', '', $path);
-$path = str_replace('/backend/validation.php', '', $path);
-$path = str_replace('/backend', '', $path); // Also strip /backend prefix for direct routing
+// Strip exactly one leading /api prefix (anchored, no unrestricted str_replace)
+if (str_starts_with($path, '/api')) {
+    $path = substr($path, 4);
+}
 $path = rtrim($path, '/') ?: '/';
 
 // ==================== PUBLIC ENDPOINTS ====================

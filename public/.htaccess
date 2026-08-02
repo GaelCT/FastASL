@@ -1,0 +1,34 @@
+# ASL Racer — Public document root .htaccess
+# The web server document root MUST point here (public/).
+# Everything else in the repository is outside the document root.
+
+# Route API requests to the front controller
+RewriteEngine On
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteRule ^api/(.*)$ index.php [L,QSA]
+
+# Defense in depth: deny dotfiles and backup files even though
+# the sensitive files are no longer inside this directory
+<FilesMatch "^\.">
+    Order Deny,Allow
+    Deny from all
+</FilesMatch>
+<FilesMatch "\.(sql|md|log|env|bak|old|tmp|yaml|yml)$">
+    Order Deny,Allow
+    Deny from all
+</FilesMatch>
+
+# Prevent directory listing
+Options -Indexes
+
+# PHP settings
+<IfModule mod_php.c>
+    php_flag display_errors Off
+    php_flag display_startup_errors Off
+    php_flag log_errors On
+    php_value error_reporting E_ALL
+    php_flag expose_php Off
+    php_value session.cookie_httponly 1
+    php_value session.cookie_samesite Strict
+    php_value session.cookie_secure 1
+</IfModule>

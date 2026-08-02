@@ -8,20 +8,33 @@ A typing race game with American Sign Language (ASL) integration.
 
 ```
 ASL-Revive/
-├── backend/              # PHP API backend
-│   ├── config/          # Configuration management
-│   ├── controllers/     # HTTP request handlers
-│   ├── middleware/      # Request middleware (CORS, Auth, Rate Limit)
-│   ├── services/        # Business logic layer
-│   ├── utils/           # Helper utilities
-│   ├── index.php        # Main API entry point
-│   └── validation.php   # Legacy endpoint (redirects to index.php)
-├── database/            # SQL schema
-├── JS/                  # Frontend JavaScript
-├── pages/               # HTML pages
-├── style/               # CSS styles
-└── .env                 # Environment configuration (not in git)
+├── public/               # ONLY web-accessible directory
+│   ├── index.php         # API front controller (routes /api/*)
+│   ├── router.php        # Development server router
+│   ├── login.html        # Frontend pages
+│   ├── dashboard.html
+│   ├── race.html
+│   └── assets/           # Frontend assets
+│       ├── js/
+│       └── css/
+├── backend/              # PHP API implementation (NOT web-accessible)
+│   ├── config/
+│   ├── controllers/
+│   ├── middleware/
+│   ├── services/
+│   └── utils/
+├── database/             # SQL schema
+├── docs/                 # Internal documentation
+├── tests/                # PHPUnit tests
+├── var/                  # Runtime logs and cache (created at deployment)
+│   ├── log/
+│   └── cache/
+├── .env                  # Environment configuration (outside public/)
+├── composer.json
+└── package.json
 ```
+
+> **Security note:** Only `public/` is served by the web server. `.env`, `backend/`, `database/`, `docs/`, and `var/` must never be inside the document root.
 
 ## Backend Setup
 
@@ -65,30 +78,39 @@ ASL-Revive/
 
 4. **Run the application**
    ```bash
-   php -S localhost:8000 -t .
+   php -S 127.0.0.1:8000 -t public public/router.php
    ```
 
 5. **Access the application**
-   - Frontend: http://localhost:8000/pages/login.html
-   - API: http://localhost:8000/backend/
+   - Frontend: http://localhost:8000/login.html
+   - API: http://localhost:8000/api/
 
 ## API Endpoints
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| POST | `/backend/register` | Register a new user |
-| POST | `/backend/login` | Authenticate and receive tokens |
-| POST | `/backend/refresh` | Refresh access token |
-| POST | `/backend/logout` | Invalidate current session |
-| POST | `/backend/validate` | Check username availability |
-| GET | `/backend/check` | Check username availability (query) |
-| GET | `/backend/leaderboard` | Retrieve leaderboard |
-| POST | `/backend/score` | Submit race score |
-| GET | `/backend/health` | Health check |
+| POST | `/api/register` | Register a new user |
+| POST | `/api/login` | Authenticate and receive tokens |
+| POST | `/api/refresh` | Refresh access token |
+| POST | `/api/logout` | Invalidate current session |
+| POST | `/api/validate` | Check username availability |
+| GET | `/api/check` | Check username availability (query) |
+| GET | `/api/leaderboard` | Retrieve leaderboard |
+| POST | `/api/score` | Submit race score |
+| GET | `/api/` | Health check |
 
 ### Authentication
 
-All protected endpoints require an `Authorization: Bearer <token>` header. Tokens are obtained via `/backend/login`.
+All protected endpoints require an `Authorization: Bearer <token>` header. Tokens are obtained via `/api/login`.
+
+### Testing
+
+```bash
+composer install     # install PHP dependencies
+vendor/bin/phpunit   # run PHP tests
+npm install          # install frontend tooling
+npm run lint         # lint JavaScript
+```
 
 ## Project Audit
 
