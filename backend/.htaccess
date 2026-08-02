@@ -2,10 +2,8 @@
 # The backend directory must NEVER be inside the web document root.
 # This file is defense in depth: deny all direct access.
 
-Order Deny,Allow
-Deny from all
+Require all denied
 
 <FilesMatch "^\.">
-    Order Deny,Allow
-    Deny from all
+    Require all denied
 </FilesMatch>

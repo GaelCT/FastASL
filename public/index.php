@@ -24,10 +24,17 @@ require_once __DIR__ . '/../backend/utils/Response.php';
 // ==================== ROUTING ====================
 $method = $_SERVER['REQUEST_METHOD'];
 $path = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH);
+if ($path === false || $path === '') {
+    $path = '/';
+}
 
-// Strip exactly one leading /api prefix (anchored, no unrestricted str_replace)
-if (str_starts_with($path, '/api')) {
+// Only accept an exact /api or /api/... prefix (anchored boundary)
+if ($path === '/api') {
+    $path = '/';
+} elseif (str_starts_with($path, '/api/')) {
     $path = substr($path, 4);
+} else {
+    Response::error('Not found.', 404);
 }
 $path = rtrim($path, '/') ?: '/';
 

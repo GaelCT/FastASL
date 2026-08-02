@@ -39,3 +39,7 @@ ASL-Revive-zip.zip
 
 # Nested git repo
 FastASL/
+
+# Review artifacts
+.review/
+.review.zip

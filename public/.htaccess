@@ -10,12 +10,10 @@ RewriteRule ^api/(.*)$ index.php [L,QSA]
 # Defense in depth: deny dotfiles and backup files even though
 # the sensitive files are no longer inside this directory
 <FilesMatch "^\.">
-    Order Deny,Allow
-    Deny from all
+    Require all denied
 </FilesMatch>
 <FilesMatch "\.(sql|md|log|env|bak|old|tmp|yaml|yml)$">
-    Order Deny,Allow
-    Deny from all
+    Require all denied
 </FilesMatch>
 
 # Prevent directory listing
