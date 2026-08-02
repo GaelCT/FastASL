@@ -29,6 +29,9 @@ final class ExposureTest extends TestCase
     private static bool $envCreated = false;
     private static bool $symlinkReady = false;
 
+    /** @var list<string> Files created inside public/ by this test run. */
+    private static array $exposureFiles = [];
+
     public static function setUpBeforeClass(): void
     {
         $root = dirname(__DIR__, 2);
@@ -36,6 +39,7 @@ final class ExposureTest extends TestCase
 
         self::provisionEnvFile($root);
         self::createSymlinkCanary($root);
+        self::createExposureFiles($public);
 
         $command = sprintf(
             'php -S %s:%d -t %s %s',
@@ -97,6 +101,21 @@ final class ExposureTest extends TestCase
         self::$symlinkReady = true;
     }
 
+    /**
+     * Places canary files with sensitive extensions directly inside
+     * public/. They must be refused even though they are physically
+     * within the document root (defense in depth, mirrors .htaccess).
+     */
+    private static function createExposureFiles(string $public): void
+    {
+        foreach (['sql', 'log', 'bak', 'php'] as $extension) {
+            $file = $public . '/exposure-canary.' . $extension;
+            if (@file_put_contents($file, self::CANARY_MARKER)) {
+                self::$exposureFiles[] = $file;
+            }
+        }
+    }
+
     public static function tearDownAfterClass(): void
     {
         if (is_resource(self::$serverProcess)) {
@@ -111,6 +130,9 @@ final class ExposureTest extends TestCase
         if (self::$symlinkReady) {
             @unlink($root . '/public/' . self::SYMLINK_NAME);
             @unlink($root . '/' . self::CANARY_FILE);
+        }
+        foreach (self::$exposureFiles as $file) {
+            @unlink($file);
         }
     }
 
@@ -189,6 +211,10 @@ final class ExposureTest extends TestCase
         yield 'encoded dotdot env' => ['/%2e%2e/.env'];
         yield 'encoded slash dotdot' => ['/..%2f.env'];
         yield 'double-encoded dotdot' => ['/%252e%252e/.env'];
+        yield 'exposure sql in root' => ['/exposure-canary.sql'];
+        yield 'exposure log in root' => ['/exposure-canary.log'];
+        yield 'exposure backup in root' => ['/exposure-canary.bak'];
+        yield 'exposure php script in root' => ['/exposure-canary.php'];
     }
 
     #[DataProvider('sensitivePathProvider')]
@@ -221,7 +247,11 @@ final class ExposureTest extends TestCase
 
         [$status, $body] = self::httpResponse('/' . self::SYMLINK_NAME);
 
-        $this->assertNotSame(200, $status, 'Symlink escape was served with HTTP 200.');
+        $this->assertContains(
+            $status,
+            [403, 404],
+            "Symlink escape returned unexpected HTTP {$status}. Expected 403 or 404."
+        );
         $this->assertStringNotContainsString(
             self::CANARY_MARKER,
             $body,
@@ -245,8 +275,21 @@ final class ExposureTest extends TestCase
         $this->assertSame(200, $status);
     }
 
-    public function testUnprefixedApiPathIsRejected(): void
+    /**
+     * @return iterable<string, array{string, int}>
+     */
+    public static function apiRoutingProvider(): iterable
     {
-        $this->assertNotSame(200, self::httpStatus('/login'));
+        yield 'exact api root' => ['/api', 200];
+        yield 'api with trailing slash' => ['/api/', 200];
+        yield 'api unknown route' => ['/api/nope', 404];
+        yield 'api-prefixed non-route' => ['/apix', 404];
+        yield 'unprefixed frontend path' => ['/login', 404];
+    }
+
+    #[DataProvider('apiRoutingProvider')]
+    public function testApiRoutingExactness(string $path, int $expected): void
+    {
+        $this->assertSame($expected, self::httpStatus($path), "Unexpected status for {$path}.");
     }
 }

@@ -40,6 +40,17 @@ if ($path === '/api' || str_starts_with($path, '/api/')) {
 // Serve existing static files inside public/ only
 $candidate = realpath($public . $path);
 if ($candidate !== false && str_starts_with($candidate, $public . DIRECTORY_SEPARATOR) && is_file($candidate)) {
+    // Defense in depth: reject the sensitive extensions denied by
+    // public/.htaccess, and any PHP file other than the front controller.
+    $extension = strtolower(pathinfo($candidate, PATHINFO_EXTENSION));
+    $blockedExtensions = ['env', 'sql', 'md', 'log', 'bak', 'old', 'tmp', 'yaml', 'yml'];
+    if (
+        in_array($extension, $blockedExtensions, true)
+        || ($extension === 'php' && $candidate !== $public . DIRECTORY_SEPARATOR . 'index.php')
+    ) {
+        http_response_code(404);
+        exit;
+    }
     return false;
 }
 
