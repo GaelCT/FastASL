@@ -75,3 +75,46 @@ jobs:
           node-version: '20'
       - name: Validate OpenAPI
         run: npx @redocly/cli lint backend/openapi.yaml
+
+  apache-exposure:
+    name: Apache exposure smoke test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Create non-index PHP test files
+        run: |
+          mkdir -p public/nested
+          printf '<?php echo "LEAK"; ?>\n' > public/debug.php
+          printf '<?php echo "LEAK"; ?>\n' > public/nested/index.php
+          printf '<?php echo "LEAK"; ?>\n' > public/INDEX.PHP
+          printf '<?php echo "LEAK"; ?>\n' > public/exposure-canary.sql
+      - name: Start Apache with production .htaccess
+        run: |
+          docker run -d --name apache-test \
+            -v "$GITHUB_WORKSPACE/public:/usr/local/apache2/htdocs:ro" \
+            -v "$GITHUB_WORKSPACE/.github/apache-test/httpd.conf:/usr/local/apache2/conf/httpd.conf:ro" \
+            -p 8080:8080 httpd:2.4
+      - name: Verify exposure rules
+        run: |
+          code=000
+          for i in $(seq 1 30); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8080/login.html)
+            [ "$code" = "200" ] && break
+            sleep 1
+          done
+          [ "$code" = "200" ] || { echo "Apache did not become ready (last: $code)"; exit 1; }
+          check_denied() {
+            code=$(curl -s -o /dev/null -w '%{http_code}' "http://localhost:8080$1")
+            case "$code" in 403|404) return 0 ;; esac
+            echo "FAIL: $1 returned $code (expected 403 or 404)"
+            exit 1
+          }
+          check_denied /debug.php
+          check_denied /nested/index.php
+          check_denied /INDEX.PHP
+          check_denied /index.php/extra
+          check_denied /exposure-canary.sql
+          code=$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8080/index.php)
+          case "$code" in 403|404) echo "FAIL: /index.php was denied ($code)"; exit 1 ;; esac
+          echo "Apache exposure smoke test passed"
+

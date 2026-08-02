@@ -105,26 +105,33 @@ final class ExposureTest extends TestCase
      * Places canary files with sensitive extensions directly inside
      * public/. They must be refused even though they are physically
      * within the document root (defense in depth, mirrors .htaccess).
-     * Setup is mandatory and non-destructive: a pre-existing file or a
-     * failed write fails the suite instead of silently false-passing.
+     * Setup is mandatory and non-destructive: a pre-existing file or
+     * symlink (including a dangling one) or a failed write fails the
+     * suite instead of silently false-passing. The generated path is
+     * registered for cleanup before its contents are verified, so a
+     * marker mismatch cannot leave the file behind.
      */
     private static function createExposureFiles(string $public): void
     {
-        foreach (['sql', 'log', 'bak', 'php'] as $extension) {
+        foreach (['sql', 'log', 'bak', 'php', 'PHP'] as $extension) {
             $file = $public . '/exposure-canary.' . $extension;
 
-            if (file_exists($file)) {
-                self::fail("Exposure test file already exists: {$file}");
+            if (file_exists($file) || is_link($file)) {
+                self::fail("Exposure test path already exists: {$file}");
             }
 
             if (file_put_contents($file, self::CANARY_MARKER) === false) {
+                if (file_exists($file) || is_link($file)) {
+                    unlink($file);
+                }
                 self::fail("Could not create exposure test file: {$file}");
-            }
-            if (file_get_contents($file) !== self::CANARY_MARKER) {
-                self::fail("Exposure test file does not contain the expected marker: {$file}");
             }
 
             self::$exposureFiles[] = $file;
+
+            if (file_get_contents($file) !== self::CANARY_MARKER) {
+                self::fail("Exposure test file does not contain the expected marker: {$file}");
+            }
         }
     }
 
@@ -227,6 +234,7 @@ final class ExposureTest extends TestCase
         yield 'exposure log in root' => ['/exposure-canary.log'];
         yield 'exposure backup in root' => ['/exposure-canary.bak'];
         yield 'exposure php script in root' => ['/exposure-canary.php'];
+        yield 'exposure uppercase php in root' => ['/exposure-canary.PHP'];
     }
 
     #[DataProvider('sensitivePathProvider')]
