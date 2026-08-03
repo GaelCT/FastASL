@@ -159,9 +159,18 @@ jobs:
             -v "$RUNNER_TEMP/var:/var/www/var" \
             -v "$GITHUB_WORKSPACE/.github/apache-test/htaccess.conf:/etc/apache2/conf-enabled/zz-htaccess.conf:ro" \
             -v "$GITHUB_WORKSPACE/.github/apache-test/headers.load:/etc/apache2/mods-enabled/headers.load:ro" \
+            -v "$GITHUB_WORKSPACE/.github/apache-test/php.ini:/usr/local/etc/php/conf.d/zz-fastasl-security.ini:ro" \
             -p 8080:80 \
             php:8.2-apache@sha256:bf518c4a303e5574b967201f22228f2f39e214afd23dcd6d58c965bc3c008086 \
             bash -c "chown -R www-data:www-data /var/www/var && a2enmod rewrite >/dev/null && exec apache2-foreground"
+      - name: Verify PHP disclosure setting
+        run: |
+          config=$(docker exec apache-test php -i | grep -E '^expose_php => ' || true)
+          echo "$config"
+          [ "$config" = "expose_php => Off => Off" ] || {
+            echo "FAIL: Apache PHP runtime did not load expose_php = Off"
+            exit 1
+          }
       - name: Verify exposure rules
         run: |
           code=000
@@ -208,6 +217,12 @@ jobs:
               rm -f "$headers" "$body"
               exit 1
             fi
+            if grep -qi '^X-Powered-By:' "$headers"; then
+              echo "FAIL: $path disclosed X-Powered-By"
+              cat "$headers"
+              rm -f "$headers" "$body"
+              exit 1
+            fi
             if ! grep -qi '^Content-Type: application/json' "$headers"; then
               echo "FAIL: $path did not return an application/json content type"
               cat "$headers"
@@ -220,11 +235,66 @@ jobs:
           verify_no_php_source /api/ 200
           verify_no_php_source /index.php 404
           health_body=$(curl -sS http://localhost:8080/api || true)
-          printf '%s' "$health_body" | grep -Fq '"ASL Racer API"' || {
-            echo "FAIL: /api did not return the expected health response"
+          printf '%s' "$health_body" | grep -Fq '"success":true' || {
+            echo "FAIL: /api did not return success=true"
             printf '%s\n' "$health_body"
             exit 1
           }
+          printf '%s' "$health_body" | grep -Fq '"message":"ASL Racer API"' || {
+            echo "FAIL: /api did not return the expected health message"
+            printf '%s\n' "$health_body"
+            exit 1
+          }
+          if printf '%s' "$health_body" | grep -Fq '"version"'; then
+            echo "FAIL: /api disclosed a version field"
+            printf '%s\n' "$health_body"
+            exit 1
+          fi
+          health_body_slash=$(curl -sS http://localhost:8080/api/ || true)
+          printf '%s' "$health_body_slash" | grep -Fq '"success":true' || {
+            echo "FAIL: /api/ did not return success=true"
+            printf '%s\n' "$health_body_slash"
+            exit 1
+          }
+          verify_static_response() {
+            path="$1"
+            expected_code="$2"
+            headers=$(mktemp)
+            body=$(mktemp)
+            code=$(curl -sS -D "$headers" -o "$body" -w '%{http_code}' "http://localhost:8080$path" || true)
+            if [ "$code" != "$expected_code" ]; then
+              echo "FAIL: $path returned $code; expected $expected_code"
+              cat "$headers" "$body"
+              rm -f "$headers" "$body"
+              exit 1
+            fi
+            if grep -qi '^X-Powered-By:' "$headers"; then
+              echo "FAIL: $path disclosed X-Powered-By"
+              cat "$headers"
+              rm -f "$headers" "$body"
+              exit 1
+            fi
+            rm -f "$headers" "$body"
+          }
+          verify_static_response /login.html 200
+          verify_static_response /assets/css/main.css 200
+          verify_json_error() {
+            headers=$(mktemp)
+            body=$(mktemp)
+            code=$(curl -sS -D "$headers" -o "$body" -w '%{http_code}' http://localhost:8080/api/nope || true)
+            [ "$code" = "404" ] || { echo "FAIL: /api/nope returned $code"; cat "$headers" "$body"; rm -f "$headers" "$body"; exit 1; }
+            grep -qi '^X-Powered-By:' "$headers" && { echo "FAIL: /api/nope disclosed X-Powered-By"; cat "$headers"; rm -f "$headers" "$body"; exit 1; }
+            grep -qi '^Content-Type: application/json' "$headers" || { echo "FAIL: /api/nope was not JSON"; cat "$headers"; rm -f "$headers" "$body"; exit 1; }
+            grep -Fq '"success":false' "$body" || { echo "FAIL: /api/nope missing success=false"; cat "$body"; rm -f "$headers" "$body"; exit 1; }
+            grep -Fq '"error":"Not found."' "$body" || { echo "FAIL: /api/nope missing exact error"; cat "$body"; rm -f "$headers" "$body"; exit 1; }
+            rm -f "$headers" "$body"
+          }
+          verify_json_error
+          verify_static_response /index.php/extra 403
+          if curl -sS http://localhost:8080/index.php/extra | grep -Fq '<?php'; then
+            echo "FAIL: disallowed PHP path disclosed source"
+            exit 1
+          fi
           echo "Apache exposure smoke test passed"
 
       - name: Verify static-page security headers

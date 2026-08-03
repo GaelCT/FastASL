@@ -9,7 +9,7 @@ use PHPUnit\Framework\TestCase;
  * HTTP exposure tests — verify that only public/ is served.
  *
  * Starts the PHP built-in server with the production-style layout:
- *   php -S 127.0.0.1:8899 -t public public/router.php
+ *   php -d expose_php=0 -S 127.0.0.1:8899 -t public public/router.php
  *
  * Every sensitive path must return 403 or 404 and must never return
  * the file contents (200), and must never leak the canary marker.
@@ -42,7 +42,7 @@ final class ExposureTest extends TestCase
         self::createExposureFiles($public);
 
         $command = sprintf(
-            'php -S %s:%d -t %s %s',
+            'php -d expose_php=0 -S %s:%d -t %s %s',
             self::HOST,
             self::PORT,
             escapeshellarg($public),
@@ -180,33 +180,70 @@ final class ExposureTest extends TestCase
     }
 
     /**
-     * @return array{int, string} [status, body]
+     * @return array{int, list<string>, string} [status, headers, body]
      */
-    private static function httpResponse(string $path): array
+    private static function httpResponse(string $path, string $method = 'GET', ?string $requestBody = null): array
     {
-        $context = stream_context_create([
-            'http' => [
-                'method' => 'GET',
-                'ignore_errors' => true,
-                'timeout' => 5,
-            ],
-        ]);
-
+        $options = [
+            'method' => $method,
+            'ignore_errors' => true,
+            'timeout' => 5,
+        ];
+        if ($requestBody !== null) {
+            $options['header'] = "Content-Type: application/json\r\n";
+            $options['content'] = $requestBody;
+        }
+        $context = stream_context_create(['http' => $options]);
+        unset($http_response_header);
         $body = @file_get_contents(self::BASE_URL . $path, false, $context);
-        if ($body === false) {
-            return [0, ''];
-        }
-
-        $statusLine = $http_response_header[0] ?? '';
+        $headers = $http_response_header ?? [];
+        $statusLine = $headers[0] ?? '';
+        $status = 0;
         if (preg_match('#\s(\d{3})\s#', $statusLine, $matches)) {
-            return [(int) $matches[1], $body];
+            $status = (int) $matches[1];
         }
-        return [0, ''];
+        return [$status, $headers, $body === false ? '' : $body];
     }
 
     private static function httpStatus(string $path): int
     {
         return self::httpResponse($path)[0];
+    }
+
+    private function assertNoPoweredBy(string $path, array $headers): void
+    {
+        $matches = array_values(array_filter($headers, static fn (string $header): bool => preg_match('/^X-Powered-By\\s*:/i', $header) === 1));
+        $this->assertSame([], $matches, "Route {$path} disclosed X-Powered-By. Headers: " . implode(' | ', $headers));
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function assertJsonResponse(string $path, int $expectedStatus): array
+    {
+        [$status, $headers, $body] = self::httpResponse($path);
+        $this->assertSame($expectedStatus, $status, "Unexpected status for {$path}.");
+        $this->assertNoPoweredBy($path, $headers);
+        $contentTypes = array_values(array_filter($headers, static fn (string $header): bool => stripos($header, 'Content-Type: application/json') === 0));
+        $this->assertNotSame([], $contentTypes, "Route {$path} did not return JSON.");
+        $decoded = json_decode($body, true);
+        $this->assertIsArray($decoded, "Route {$path} did not return valid JSON: {$body}");
+        return $decoded;
+    }
+
+    private function assertHealth(string $path): void
+    {
+        [$status, $headers, $body] = self::httpResponse($path);
+        $this->assertSame(200, $status, "Unexpected health status for {$path}.");
+        $this->assertNoPoweredBy($path, $headers);
+        $contentTypes = array_values(array_filter($headers, static fn (string $header): bool => stripos($header, 'Content-Type: application/json') === 0));
+        $this->assertNotSame([], $contentTypes, "Health route {$path} did not return JSON.");
+        $decoded = json_decode($body, true);
+        $this->assertIsArray($decoded);
+        $keys = array_keys($decoded);
+        sort($keys);
+        $this->assertSame(['message', 'success', 'timestamp'], $keys, "Unexpected health keys for {$path}.");
+        $this->assertArrayNotHasKey('version', $decoded);
     }
 
     /**
@@ -251,7 +288,8 @@ final class ExposureTest extends TestCase
     #[DataProvider('sensitivePathProvider')]
     public function testSensitivePathIsNotExposed(string $path): void
     {
-        [$status, $body] = self::httpResponse($path);
+        [$status, $headers, $body] = self::httpResponse($path);
+        $this->assertNoPoweredBy($path, $headers);
 
         $this->assertNotSame(
             200,
@@ -276,7 +314,8 @@ final class ExposureTest extends TestCase
             $this->markTestSkipped('Symlink creation is not permitted on this platform.');
         }
 
-        [$status, $body] = self::httpResponse('/' . self::SYMLINK_NAME);
+        [$status, $headers, $body] = self::httpResponse('/' . self::SYMLINK_NAME);
+        $this->assertNoPoweredBy('/' . self::SYMLINK_NAME, $headers);
 
         $this->assertContains(
             $status,
@@ -290,20 +329,57 @@ final class ExposureTest extends TestCase
         );
     }
 
-    public function testPublicPageIsServed(): void
+    public function testPublicPageIsServedWithoutPoweredBy(): void
     {
-        $this->assertSame(200, self::httpStatus('/login.html'));
-    }
-
-    public function testPublicAssetIsServed(): void
-    {
-        $this->assertSame(200, self::httpStatus('/assets/css/main.css'));
-    }
-
-    public function testApiHealthIsServed(): void
-    {
-        $status = self::httpStatus('/api/');
+        [$status, $headers] = self::httpResponse('/login.html');
         $this->assertSame(200, $status);
+        $this->assertNoPoweredBy('/login.html', $headers);
+    }
+
+    public function testPublicAssetIsServedWithoutPoweredBy(): void
+    {
+        [$status, $headers] = self::httpResponse('/assets/css/main.css');
+        $this->assertSame(200, $status);
+        $this->assertNoPoweredBy('/assets/css/main.css', $headers);
+    }
+
+    public function testApiHealthIsMinimalAndHeaderSafe(): void
+    {
+        $this->assertHealth('/api');
+        $this->assertHealth('/api/');
+    }
+
+    public function testJsonErrorIsExactAndHeaderSafe(): void
+    {
+        $this->assertSame(
+            ['success' => false, 'error' => 'Not found.'],
+            $this->assertJsonResponse('/api/nope', 404)
+        );
+    }
+
+    public function testDisallowedPhpPathIsExactAndHeaderSafe(): void
+    {
+        [$status, $headers, $body] = self::httpResponse('/index.php/extra');
+        $this->assertSame(404, $status);
+        $this->assertNoPoweredBy('/index.php/extra', $headers);
+        $this->assertStringNotContainsString('<?php', $body);
+    }
+
+    public function testHealthSchemaMatchesRuntimeKeys(): void
+    {
+        $this->assertHealth('/api');
+        $spec = file_get_contents(dirname(__DIR__, 2) . '/backend/openapi.yaml');
+        $this->assertNotFalse($spec);
+        $start = strpos($spec, "  /:\n");
+        $end = strpos($spec, "\n  /validate:", $start === false ? 0 : $start);
+        $this->assertNotFalse($start);
+        $this->assertNotFalse($end);
+        $healthSchema = substr($spec, $start, $end - $start);
+        preg_match_all('/^ {18}([A-Za-z][A-Za-z0-9_-]*):\\s*$/m', $healthSchema, $matches);
+        $schemaKeys = array_values(array_unique($matches[1]));
+        sort($schemaKeys);
+        $this->assertSame(['message', 'success', 'timestamp'], $schemaKeys);
+        $this->assertStringNotContainsString('version:', $healthSchema);
     }
 
     /**

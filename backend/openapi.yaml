@@ -2,6 +2,7 @@ openapi: 3.0.0
 info:
   title: ASL Racer API
   description: REST API for ASL Racer typing game
+  # Internal API-spec version; never exposed as a runtime build identifier.
   version: 3.0.0
   contact:
     name: API Support
@@ -25,13 +26,18 @@ paths:
             application/json:
               schema:
                 type: object
+                required:
+                  - success
+                  - message
+                  - timestamp
                 properties:
                   success:
                     type: boolean
                   message:
                     type: string
-                  version:
+                  timestamp:
                     type: string
+                    format: date-time
 
   /validate:
     post:
