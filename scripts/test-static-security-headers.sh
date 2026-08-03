@@ -2,7 +2,40 @@
 set -euo pipefail
 
 base_url="${BASE_URL:-http://localhost:8080}"
-headers_for() { curl --fail --silent --show-error --dump-header - --output /dev/null "$base_url$1" | tr -d '\r'; }
+temporary_files=()
+cleanup() {
+  if [ "${#temporary_files[@]}" -gt 0 ]; then
+    rm -f "${temporary_files[@]}"
+  fi
+}
+trap cleanup EXIT INT TERM
+
+headers_for() {
+  local path="$1" headers_file status
+  headers_file=$(mktemp)
+  temporary_files+=("$headers_file")
+
+  if ! status=$(curl \
+    --silent \
+    --show-error \
+    --dump-header "$headers_file" \
+    --output /dev/null \
+    --write-out '%{http_code}' \
+    "$base_url$path"); then
+    echo "Request failed for $path" >&2
+    cat "$headers_file" >&2
+    exit 1
+  fi
+
+  if [[ "$status" != "200" ]]; then
+    echo "Expected HTTP 200 for $path, received $status" >&2
+    cat "$headers_file" >&2
+    exit 1
+  fi
+
+  tr -d '\r' < "$headers_file"
+}
+
 single_header() {
   local headers="$1" name="$2" count
   count=$(printf '%s\n' "$headers" | grep -ic "^${name}:")
