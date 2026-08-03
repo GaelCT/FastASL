@@ -107,13 +107,13 @@ jobs:
         run: |
           code=000
           for i in $(seq 1 30); do
-            code=$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8080/login.html)
+            code=$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8080/login.html || true)
             [ "$code" = "200" ] && break
             sleep 1
           done
           [ "$code" = "200" ] || { echo "Apache did not become ready (last: $code)"; exit 1; }
           check_denied() {
-            code=$(curl -s -o /dev/null -w '%{http_code}' "http://localhost:8080$1")
+            code=$(curl -s -o /dev/null -w '%{http_code}' "http://localhost:8080$1" || true)
             case "$code" in 403|404) return 0 ;; esac
             echo "FAIL: $1 returned $code (expected 403 or 404)"
             exit 1
@@ -133,7 +133,7 @@ jobs:
               -D "$headers" \
               -o "$body" \
               -w '%{http_code}' \
-              "http://localhost:8080$path")
+              "http://localhost:8080$path" || true)
             if [ "$code" != "$expected_code" ]; then
               echo "FAIL: $path returned $code; expected $expected_code"
               echo "--- headers ---"
@@ -160,7 +160,7 @@ jobs:
           verify_no_php_source /api 200
           verify_no_php_source /api/ 200
           verify_no_php_source /index.php 404
-          health_body=$(curl -sS http://localhost:8080/api)
+          health_body=$(curl -sS http://localhost:8080/api || true)
           printf '%s' "$health_body" | grep -Fq '"ASL Racer API"' || {
             echo "FAIL: /api did not return the expected health response"
             printf '%s\n' "$health_body"
