@@ -258,19 +258,40 @@ def extract_and_validate(archive_path: Path, destination: Path) -> list[str]:
     return errors + validate_extracted_release(destination)
 
 
+def explicit_destination(requested: Path) -> Path:
+    """Create a new destination without following caller-owned path entries."""
+    lexical = requested.absolute()
+    if os.path.lexists(lexical):
+        raise FileExistsError(f'destination already exists and is caller-owned: {lexical}')
+    lexical_parent = lexical.parent
+    if lexical_parent.is_symlink():
+        raise OSError(f'destination parent is a symlink and is caller-owned: {lexical_parent}')
+    try:
+        parent = lexical_parent.resolve(strict=True)
+    except FileNotFoundError as exc:
+        raise FileNotFoundError(f'destination parent does not exist: {lexical_parent}') from exc
+    if not parent.is_dir():
+        raise NotADirectoryError(f'destination parent is not a directory: {parent}')
+    destination = parent / lexical.name
+    destination.mkdir(exist_ok=False)
+    details = destination.lstat()
+    if not stat.S_ISDIR(details.st_mode) or stat.S_ISLNK(details.st_mode):
+        raise RuntimeError(f'created destination is not a real directory: {destination}')
+    return destination
+
+
 def managed_extract_validate(archive_path: Path, requested: Path | None) -> list[str]:
     destination_created = False
     if requested is None:
         destination = Path(tempfile.mkdtemp(prefix='fastasl-release-'))
         destination_created = True
     else:
-        destination = requested.resolve()
         try:
-            destination.mkdir(parents=True, exist_ok=False)
+            destination = explicit_destination(requested)
         except FileExistsError:
-            return [f'FAIL: {destination} (existing): destination already exists and is caller-owned']
+            return [f'FAIL: {requested.absolute()} (existing): destination already exists and is caller-owned']
         except OSError as exc:
-            return [f'FAIL: {destination} (missing): cannot create destination: {exc}']
+            return [f'FAIL: {requested.absolute()} (missing): cannot prepare destination: {exc}']
         destination_created = True
     errors: list[str] = []
     try:
@@ -419,18 +440,48 @@ def self_test():
         explicit = base / 'owned-output'
         assert not managed_extract_validate(valid, explicit), 'explicit extraction failed'
         assert not explicit.exists(), 'explicit validator-owned destination was not cleaned'
+
         empty_existing = base / 'existing-empty'; empty_existing.mkdir()
         assert_failure(managed_extract_validate(valid, empty_existing), expected_path='existing-empty', expected_rule='caller-owned')
         assert empty_existing.exists(), 'existing empty destination was deleted'
         sentinel_dir = base / 'existing-sentinel'; sentinel_dir.mkdir(); sentinel = sentinel_dir / 'sentinel.txt'; sentinel.write_text('preserve')
         assert_failure(managed_extract_validate(valid, sentinel_dir), expected_path='existing-sentinel', expected_rule='caller-owned')
         assert sentinel.read_text() == 'preserve', 'sentinel content changed'
+        existing_file = base / 'existing-file'; existing_file.write_text('preserve')
+        assert_failure(managed_extract_validate(valid, existing_file), expected_path='existing-file', expected_rule='caller-owned')
+        assert existing_file.read_text() == 'preserve', 'existing destination file changed'
+
+        directory_target = base / 'directory-target'; directory_target.mkdir(); directory_sentinel = directory_target / 'sentinel.txt'; directory_sentinel.write_text('preserve')
+        directory_link = base / 'directory-link'; directory_link.symlink_to(directory_target, target_is_directory=True)
+        assert_failure(managed_extract_validate(valid, directory_link), expected_path='directory-link', expected_rule='caller-owned')
+        assert os.path.lexists(directory_link) and os.readlink(directory_link) == str(directory_target), 'directory symlink changed'
+        assert directory_sentinel.read_text() == 'preserve' and not (directory_target / 'backend').exists(), 'directory symlink target changed'
+        file_target = base / 'file-target'; file_target.write_text('preserve')
+        file_link = base / 'file-link'; file_link.symlink_to(file_target)
+        assert_failure(managed_extract_validate(valid, file_link), expected_path='file-link', expected_rule='caller-owned')
+        assert os.path.lexists(file_link) and os.readlink(file_link) == str(file_target), 'file symlink changed'
+        assert file_target.read_text() == 'preserve', 'file symlink target changed'
+        dangling_target = base / 'outside-target'
+        dangling_link = base / 'destination-link'; dangling_link.symlink_to(dangling_target, target_is_directory=True)
+        assert os.path.lexists(dangling_link) and not dangling_target.exists(), 'dangling fixture setup failed'
+        assert_failure(managed_extract_validate(valid, dangling_link), expected_path='destination-link', expected_rule='caller-owned')
+        assert os.path.lexists(dangling_link) and os.readlink(dangling_link) == str(dangling_target), 'dangling symlink changed'
+        assert not dangling_target.exists(), 'dangling symlink target was created'
+
         invalid_destination = base / 'failed-output'
         assert_failure(managed_extract_validate(base / 'empty.zip', invalid_destination), expected_path='empty.zip', expected_rule='release ZIP contains no entries')
         assert not invalid_destination.exists(), 'failed validation leaked validator-owned destination'
+        missing_parent = base / 'missing-parent'
+        assert_failure(managed_extract_validate(valid, missing_parent / 'child'), expected_path='child', expected_rule='destination parent does not exist')
+        assert not missing_parent.exists(), 'missing parent chain was created'
         parent_file = base / 'parent-file'; parent_file.write_text('preserve')
-        assert_failure(managed_extract_validate(valid, parent_file / 'child'), expected_path='child', expected_rule='cannot create destination')
+        assert_failure(managed_extract_validate(valid, parent_file / 'child'), expected_path='child', expected_rule='destination parent is not a directory')
         assert parent_file.read_text() == 'preserve', 'destination creation failure modified parent'
+        parent_target = base / 'real-parent'; parent_target.mkdir(); parent_sentinel = parent_target / 'sentinel.txt'; parent_sentinel.write_text('preserve')
+        parent_link = base / 'parent-link'; parent_link.symlink_to(parent_target, target_is_directory=True)
+        assert_failure(managed_extract_validate(valid, parent_link / 'child'), expected_path='child', expected_rule='destination parent is a symlink')
+        assert os.path.lexists(parent_link) and os.readlink(parent_link) == str(parent_target), 'parent symlink changed'
+        assert parent_sentinel.read_text() == 'preserve' and not (parent_target / 'child').exists(), 'parent symlink target changed'
     print('OK: exact POSIX, ZIP, extraction, and destination-ownership fixtures passed.')
 
 
