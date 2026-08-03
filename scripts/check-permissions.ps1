@@ -7,21 +7,31 @@ param([string]$Root = (Split-Path -Parent $PSScriptRoot), [switch]$SelfTest)
 $ErrorActionPreference = 'Stop'
 $Policy = Get-Content (Join-Path $PSScriptRoot 'permission-policy.json') -Raw | ConvertFrom-Json
 $BroadSids = @('S-1-1-0', 'S-1-5-11', 'S-1-5-32-545')
-$WriteRights = [System.Security.AccessControl.FileSystemRights]::Write -bor
-    [System.Security.AccessControl.FileSystemRights]::WriteData -bor
-    [System.Security.AccessControl.FileSystemRights]::AppendData -bor
-    [System.Security.AccessControl.FileSystemRights]::CreateFiles -bor
-    [System.Security.AccessControl.FileSystemRights]::CreateDirectories -bor
-    [System.Security.AccessControl.FileSystemRights]::Modify -bor
-    [System.Security.AccessControl.FileSystemRights]::Delete -bor
-    [System.Security.AccessControl.FileSystemRights]::ChangePermissions -bor
-    [System.Security.AccessControl.FileSystemRights]::TakeOwnership -bor
+$WriteRights = @(
+    [System.Security.AccessControl.FileSystemRights]::Write,
+    [System.Security.AccessControl.FileSystemRights]::WriteData,
+    [System.Security.AccessControl.FileSystemRights]::AppendData,
+    [System.Security.AccessControl.FileSystemRights]::CreateFiles,
+    [System.Security.AccessControl.FileSystemRights]::CreateDirectories,
+    [System.Security.AccessControl.FileSystemRights]::Modify,
+    [System.Security.AccessControl.FileSystemRights]::Delete,
+    [System.Security.AccessControl.FileSystemRights]::ChangePermissions,
+    [System.Security.AccessControl.FileSystemRights]::TakeOwnership,
     [System.Security.AccessControl.FileSystemRights]::FullControl
-$ReadRights = [System.Security.AccessControl.FileSystemRights]::Read -bor
-    [System.Security.AccessControl.FileSystemRights]::ReadData -bor
-    [System.Security.AccessControl.FileSystemRights]::ReadAttributes -bor
-    [System.Security.AccessControl.FileSystemRights]::ReadExtendedAttributes -bor
+)
+$ReadRights = @(
+    [System.Security.AccessControl.FileSystemRights]::Read,
+    [System.Security.AccessControl.FileSystemRights]::ReadData,
+    [System.Security.AccessControl.FileSystemRights]::ReadAttributes,
+    [System.Security.AccessControl.FileSystemRights]::ReadExtendedAttributes,
     [System.Security.AccessControl.FileSystemRights]::FullControl
+)
+function Test-AnyRights($Granted, $Candidates) {
+    foreach ($candidate in $Candidates) {
+        if (($Granted -band $candidate) -eq $candidate) { return $true }
+    }
+    return $false
+}
 
 function Get-Sid([System.Security.AccessControl.FileSystemAccessRule]$Rule) {
     return $Rule.IdentityReference.Translate([System.Security.Principal.SecurityIdentifier]).Value
@@ -37,8 +47,8 @@ function Test-AclPath([string]$Path, [bool]$Secret, [System.Collections.Generic.
         $sid = $rule.IdentityReference.Value
         if ($sid -notin $BroadSids) { continue }
         if ($rule.AccessControlType -ne [System.Security.AccessControl.AccessControlType]::Allow) { continue }
-        if (($rule.FileSystemRights -band $WriteRights) -ne 0) { Add-Failure $Failures $Path $rule 'broad Allow grants write-class access'; continue }
-        if ($Secret -and (($rule.FileSystemRights -band $ReadRights) -ne 0)) { Add-Failure $Failures $Path $rule 'broad Allow grants secret read access' }
+        if (Test-AnyRights $rule.FileSystemRights $WriteRights) { Add-Failure $Failures $Path $rule 'broad Allow grants write-class access'; continue }
+        if ($Secret -and (Test-AnyRights $rule.FileSystemRights $ReadRights)) { Add-Failure $Failures $Path $rule 'broad Allow grants secret read access' }
     }
 }
 function Test-Policy([string]$Base) {
