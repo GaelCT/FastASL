@@ -94,7 +94,10 @@ jobs:
           cp .env.example "$RUNNER_TEMP/env"
       - name: Start PHP-enabled Apache with production .htaccess
         run: |
+          # First, pull the image to ensure we have the exact digest
+          docker pull php:8.2-apache@sha256:bf518c4a303e5574b967201f22228f2f39e214afd23dcd6d58c965bc3c008086
           docker run -d --name apache-test \
+            --init \
             -v "$GITHUB_WORKSPACE/public:/var/www/html:ro" \
             -v "$GITHUB_WORKSPACE/backend:/var/www/backend:ro" \
             -v "$RUNNER_TEMP/env:/var/www/.env:ro" \
@@ -102,7 +105,7 @@ jobs:
             -v "$GITHUB_WORKSPACE/.github/apache-test/htaccess.conf:/etc/apache2/conf-enabled/zz-htaccess.conf:ro" \
             -p 8080:80 \
             php:8.2-apache@sha256:bf518c4a303e5574b967201f22228f2f39e214afd23dcd6d58c965bc3c008086 \
-            bash -c "chown -R www-data:www-data /var/www/var && a2enmod rewrite >/dev/null && apache2-foreground"
+            bash -c "chown -R www-data:www-data /var/www/var && a2enmod rewrite >/dev/null && exec apache2-foreground"
       - name: Verify exposure rules
         run: |
           code=000
@@ -111,7 +114,7 @@ jobs:
             [ "$code" = "200" ] && break
             sleep 1
           done
-          [ "$code" = "200" ] || { echo "Apache did not become ready (last: $code)"; exit 1; }
+          [ "$code" = "200" ] || { echo "Apache did not become ready (last: $code)"; docker logs apache-test 2>&1 || true; exit 1; }
           check_denied() {
             code=$(curl -s -o /dev/null -w '%{http_code}' "http://localhost:8080$1" || true)
             case "$code" in 403|404) return 0 ;; esac
