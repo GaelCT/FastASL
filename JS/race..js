@@ -220,7 +220,7 @@ function syncStatsPanel() {
 function terminateGameInstance() {
     state.isPlaying = false;
     clearInterval(timerInterval);
-    if (state.camera) { try { state.camera.stop(); } catch(e){} }
+    if (state.camera) { try { state.camera.stop(); } catch (e) { /* camera already stopped */ } }
 
     const computedAccuracy = state.totalAttempts > 0 ? Math.round((state.correctAttempts / state.totalAttempts) * 100) : 0;
     els.finalWpm.textContent = `${state.score} WPM`;
@@ -251,7 +251,7 @@ function restartGame() {
 }
 
 function navigateToDashboard() {
-    if (state.camera) { try { state.camera.stop(); } catch(e){} }
+    if (state.camera) { try { state.camera.stop(); } catch (e) { /* camera already stopped */ } }
     window.location.href = 'dashboard.html';
 }
 
@@ -269,7 +269,8 @@ function triggerExplosiveFeedback(targetNode) {
         component.style.background = ['#ffd100', '#00e676', '#ffffff'][Math.floor(Math.random() * 3)];
         component.style.left = `${boundary.left + boundary.width / 2}px`;
         component.style.top = `${boundary.top + boundary.height / 2}px`;
-        component.style.position = 'fixed'; zIndex = '1000';
+        component.style.position = 'fixed';
+        component.style.zIndex = '1000';
         const polarTrajectory = (Math.PI * 2 * idx) / 12;
         component.style.setProperty('--tx', Math.cos(polarTrajectory) * 80 + 'px');
         component.style.setProperty('--ty', Math.sin(polarTrajectory) * 80 + 'px');

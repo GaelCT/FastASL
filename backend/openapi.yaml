@@ -10,6 +10,9 @@ servers:
   - url: http://localhost/backend
     description: Local development server
 
+# Public API by default; protected operations override with bearerAuth
+security: []
+
 paths:
   /:
     get:
