@@ -36,7 +36,9 @@ for path in /api /api/; do
   api_permissions=$(single_header "$api_headers" 'Permissions-Policy')
   assert_contains "$api_permissions" 'camera=()'
   assert_not_contains "$api_csp" 'cdn.jsdelivr.net'
-  [[ ! "$api_csp" =~ script-src[^;]*\'unsafe-inline\' ]] || { echo "API script-src unexpectedly permits unsafe-inline"; exit 1; }
+  api_script_src="${api_csp#*script-src }"
+  api_script_src="${api_script_src%%;*}"
+  assert_not_contains "$api_script_src" "'unsafe-inline'"
 done
 
 echo 'Static-page security header test passed'
