@@ -258,18 +258,30 @@ def extract_and_validate(archive_path: Path, destination: Path) -> list[str]:
     return errors + validate_extracted_release(destination)
 
 
+def reject_symlink_components(path: Path) -> None:
+    """Reject any existing lexical parent component that is caller-owned link state."""
+    absolute = path.absolute()
+    if not absolute.is_absolute() or not absolute.anchor:
+        raise ValueError(f'destination parent must be absolute: {path}')
+    current = Path(absolute.anchor)
+    for component in absolute.parts[1:]:
+        current /= component
+        try:
+            details = current.lstat()
+        except FileNotFoundError as exc:
+            raise FileNotFoundError(f'destination parent component does not exist: {current}') from exc
+        if stat.S_ISLNK(details.st_mode):
+            raise OSError(f'destination parent component is a symlink and is caller-owned: {current}')
+
+
 def explicit_destination(requested: Path) -> Path:
     """Create a new destination without following caller-owned path entries."""
     lexical = requested.absolute()
     if os.path.lexists(lexical):
         raise FileExistsError(f'destination already exists and is caller-owned: {lexical}')
     lexical_parent = lexical.parent
-    if lexical_parent.is_symlink():
-        raise OSError(f'destination parent is a symlink and is caller-owned: {lexical_parent}')
-    try:
-        parent = lexical_parent.resolve(strict=True)
-    except FileNotFoundError as exc:
-        raise FileNotFoundError(f'destination parent does not exist: {lexical_parent}') from exc
+    reject_symlink_components(lexical_parent)
+    parent = lexical_parent.resolve(strict=True)
     if not parent.is_dir():
         raise NotADirectoryError(f'destination parent is not a directory: {parent}')
     destination = parent / lexical.name
@@ -472,16 +484,38 @@ def self_test():
         assert_failure(managed_extract_validate(base / 'empty.zip', invalid_destination), expected_path='empty.zip', expected_rule='release ZIP contains no entries')
         assert not invalid_destination.exists(), 'failed validation leaked validator-owned destination'
         missing_parent = base / 'missing-parent'
-        assert_failure(managed_extract_validate(valid, missing_parent / 'child'), expected_path='child', expected_rule='destination parent does not exist')
+        assert_failure(managed_extract_validate(valid, missing_parent / 'child'), expected_path='child', expected_rule='destination parent component does not exist')
         assert not missing_parent.exists(), 'missing parent chain was created'
         parent_file = base / 'parent-file'; parent_file.write_text('preserve')
         assert_failure(managed_extract_validate(valid, parent_file / 'child'), expected_path='child', expected_rule='destination parent is not a directory')
         assert parent_file.read_text() == 'preserve', 'destination creation failure modified parent'
         parent_target = base / 'real-parent'; parent_target.mkdir(); parent_sentinel = parent_target / 'sentinel.txt'; parent_sentinel.write_text('preserve')
         parent_link = base / 'parent-link'; parent_link.symlink_to(parent_target, target_is_directory=True)
-        assert_failure(managed_extract_validate(valid, parent_link / 'child'), expected_path='child', expected_rule='destination parent is a symlink')
+        assert_failure(managed_extract_validate(valid, parent_link / 'child'), expected_path='child', expected_rule='component is a symlink and is caller-owned')
         assert os.path.lexists(parent_link) and os.readlink(parent_link) == str(parent_target), 'parent symlink changed'
         assert parent_sentinel.read_text() == 'preserve' and not (parent_target / 'child').exists(), 'parent symlink target changed'
+
+        ancestor_target = base / 'ancestor-outside'; ancestor_sub = ancestor_target / 'sub'; ancestor_sub.mkdir(parents=True); ancestor_sentinel = ancestor_sub / 'sentinel.txt'; ancestor_sentinel.write_text('preserve')
+        ancestor_link = base / 'ancestor-link'; ancestor_link.symlink_to(ancestor_target, target_is_directory=True)
+        assert_failure(managed_extract_validate(valid, ancestor_link / 'sub' / 'output'), expected_path='ancestor-link', expected_rule='component is a symlink and is caller-owned')
+        assert os.path.lexists(ancestor_link) and os.readlink(ancestor_link) == str(ancestor_target), 'one-level ancestor symlink changed'
+        assert ancestor_sentinel.read_text() == 'preserve' and not (ancestor_sub / 'output').exists(), 'one-level ancestor target changed'
+
+        multi_real = base / 'multi-real'; multi_real.mkdir(); multi_target = base / 'multi-outside'; multi_nested = multi_target / 'a' / 'b'; multi_nested.mkdir(parents=True); multi_sentinel = multi_nested / 'sentinel.txt'; multi_sentinel.write_text('preserve')
+        multi_link = multi_real / 'link'; multi_link.symlink_to(multi_target, target_is_directory=True)
+        assert_failure(managed_extract_validate(valid, multi_link / 'a' / 'b' / 'output'), expected_path='multi-real/link', expected_rule='component is a symlink and is caller-owned')
+        assert os.path.lexists(multi_link) and os.readlink(multi_link) == str(multi_target), 'multi-level ancestor symlink changed'
+        assert multi_sentinel.read_text() == 'preserve' and not (multi_nested / 'output').exists(), 'multi-level ancestor target changed'
+
+        dangling_ancestor_target = base / 'nonexistent-parent'; dangling_ancestor_link = base / 'dangling-ancestor-link'; dangling_ancestor_link.symlink_to(dangling_ancestor_target, target_is_directory=True)
+        assert_failure(managed_extract_validate(valid, dangling_ancestor_link / 'sub' / 'output'), expected_path='dangling-ancestor-link', expected_rule='component is a symlink and is caller-owned')
+        assert os.path.lexists(dangling_ancestor_link) and os.readlink(dangling_ancestor_link) == str(dangling_ancestor_target), 'dangling ancestor symlink changed'
+        assert not dangling_ancestor_target.exists(), 'dangling ancestor target was created'
+
+        safe_parent = base / 'safe-real' / 'a' / 'b'; safe_parent.mkdir(parents=True)
+        safe_destination = safe_parent / 'output'
+        assert not managed_extract_validate(valid, safe_destination), 'safe nested real parent extraction failed'
+        assert safe_parent.is_dir() and not safe_destination.exists(), 'safe nested real parent was modified incorrectly'
     print('OK: exact POSIX, ZIP, extraction, and destination-ownership fixtures passed.')
 
 
