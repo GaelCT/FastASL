@@ -8,7 +8,7 @@
  */
 
 class Logger {
-    private const LOG_FILE = __DIR__ . '/../../logs/error.log';
+    private const LOG_FILE = __DIR__ . '/../../var/log/error.log';
     private const MAX_LOG_FILE_SIZE = 10 * 1024 * 1024; // 10MB max log file
     private const MAX_DATA_LENGTH = 2048; // Max serialized data length per entry
 

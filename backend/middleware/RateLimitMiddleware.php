@@ -16,7 +16,7 @@ require_once __DIR__ . '/../config/Config.php';
 require_once __DIR__ . '/../utils/Response.php';
 
 class RateLimitMiddleware {
-    private const RATE_LIMIT_DIR = __DIR__ . '/../../cache/ratelimit';
+    private const RATE_LIMIT_DIR = __DIR__ . '/../../var/cache/ratelimit';
 
     /**
      * Check rate limit by identifier (IP or username)

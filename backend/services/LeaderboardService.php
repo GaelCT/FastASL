@@ -17,7 +17,7 @@ require_once __DIR__ . '/../utils/Logger.php';
 require_once __DIR__ . '/../config/Config.php';
 
 class LeaderboardService {
-    private const CACHE_DIR = __DIR__ . '/../../cache/leaderboard';
+    private const CACHE_DIR = __DIR__ . '/../../var/cache/leaderboard';
 
     public static function getLeaderboard(string $scope = 'global', int $page = 1, int $limit = 10): array {
         if ($error = Validator::validateScope($scope)) {

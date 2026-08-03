@@ -4,8 +4,8 @@
     "private": true,
     "description": "ASL Racer - A typing race game with ASL integration",
     "scripts": {
-        "lint": "eslint JS/ --ext .js",
-        "lint:fix": "eslint JS/ --ext .js --fix"
+        "lint": "eslint public/assets/js/ --ext .js",
+        "lint:fix": "eslint public/assets/js/ --ext .js --fix"
     },
     "devDependencies": {
         "eslint": "^9.39.5"

@@ -1,35 +1,15 @@
-# ASL Racer — Root .htaccess
+# ASL Racer — Repository root .htaccess
+# IMPORTANT: The document root must be the public/ directory.
+# This file exists only as defense in depth for misconfigured servers
+# that point the document root at the repository root.
+# All requests to the repository root are denied.
 
-# Enable URL rewriting
-RewriteEngine On
+Require all denied
 
-# Deny access to .env files (critical!)
-<FilesMatch "^\.env">
-    Order Deny,Allow
-    Deny from all
+# Deny access to sensitive files even if overrides bypass the rule above
+<FilesMatch "\.(env|sql|md|log|yaml|yml|json|lock|pdf|zip)$">
+    Require all denied
 </FilesMatch>
-
-# Deny access to sensitive files
-<FilesMatch "\.(sql|md|log)$">
-    Order Deny,Allow
-    Deny from all
+<FilesMatch "^\.">
+    Require all denied
 </FilesMatch>
-
-# Route API requests to backend/
-RewriteCond %{REQUEST_URI} !^/backend/
-RewriteRule ^api/(.*)$ /backend/index.php [L,QSA]
-
-# Prevent directory listing
-Options -Indexes
-
-# PHP settings
-<IfModule mod_php.c>
-    php_flag display_errors Off
-    php_flag display_startup_errors Off
-    php_flag log_errors On
-    php_value error_reporting E_ALL
-    php_flag expose_php Off
-    php_value session.cookie_httponly 1
-    php_value session.cookie_samesite Strict
-    php_value session.cookie_secure 1
-</IfModule>
