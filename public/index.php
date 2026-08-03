@@ -1,8 +1,8 @@
 <?php
 
 /**
- * ASL Racer — Backend API v3.1
- * Front controller — the only PHP file exposed publicly.
+ * ASL Racer — Backend API front controller.
+ * The only PHP file exposed publicly.
  */
 
 header('Content-Type: application/json; charset=utf-8');
@@ -44,7 +44,6 @@ $path = rtrim($path, '/') ?: '/';
 if ($method === 'GET' && $path === '/') {
     Response::success([
         'message' => 'ASL Racer API',
-        'version' => '3.1.0',
         'timestamp' => date('c'),
     ]);
 }
