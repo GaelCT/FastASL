@@ -139,11 +139,15 @@ def validate_zip(archive_path: Path) -> list[str]:
             stored = (entry.external_attr >> 16) & 0xffff
             permission_bits = stored & 0o777
             file_type = stat.S_IFMT(stored)
-            if entry.create_system != 3 or not permission_bits or file_type not in (stat.S_IFREG, stat.S_IFDIR):
+            if entry.create_system != 3 or not permission_bits or not file_type:
                 fail(errors, entry.filename, permission_bits, 'ZIP entry lacks usable Unix file type/mode metadata')
                 continue
             if file_type == stat.S_IFLNK:
                 fail(errors, entry.filename, permission_bits, 'archive symlink is prohibited')
+                continue
+            if file_type not in (stat.S_IFREG, stat.S_IFDIR):
+                fail(errors, entry.filename, permission_bits, 'ZIP entry has an unsupported Unix file type')
+                continue
             if permission_bits & 0o022:
                 fail(errors, entry.filename, permission_bits, 'stored source mode grants group/world write')
         for secret in policy['secret_files']:
@@ -203,6 +207,13 @@ def self_test():
             directory = zipfile.ZipInfo('backend/unsafe/'); directory.create_system = 3; directory.external_attr = (stat.S_IFDIR | 0o777) << 16; bad.writestr(directory, b'')
             traversal = zipfile.ZipInfo('../escape'); traversal.create_system = 3; traversal.external_attr = (stat.S_IFREG | 0o644) << 16; bad.writestr(traversal, b'x')
         assert validate_zip(root / 'bad.zip'), 'unsafe ZIP fixture passed'
+        with zipfile.ZipFile(root / 'bad-metadata.zip', 'w') as bad:
+            missing = zipfile.ZipInfo('backend/missing-mode.php'); missing.create_system = 0; missing.external_attr = 0; bad.writestr(missing, b'x')
+            zero = zipfile.ZipInfo('backend/zero-mode.php'); zero.create_system = 3; zero.external_attr = stat.S_IFREG << 16; bad.writestr(zero, b'x')
+        assert validate_zip(root / 'bad-metadata.zip'), 'missing/zero mode ZIP fixture passed'
+        with zipfile.ZipFile(root / 'secret.zip', 'w') as bad:
+            secret_entry = zipfile.ZipInfo('.env'); secret_entry.create_system = 3; secret_entry.external_attr = (stat.S_IFREG | 0o600) << 16; bad.writestr(secret_entry, b'SECRET=x')
+        assert validate_zip(root / 'secret.zip'), 'secret ZIP fixture passed'
     print('OK: POSIX permission and ZIP negative fixtures passed.')
 
 
