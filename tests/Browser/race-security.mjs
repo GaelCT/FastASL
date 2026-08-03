@@ -91,6 +91,20 @@ try {
     );
     const runtimeResponses = await Promise.all(runtimeResponseWaiters);
 
+    await page.locator('#restart-game-button').evaluate((button) => {
+        button.click();
+    });
+    await page.waitForFunction(
+        () => document.getElementById('game-screen')?.classList.contains('active'),
+        undefined,
+        { timeout: 5_000 }
+    );
+    assert.equal(
+        await page.locator('#game-screen').evaluate((element) => element.classList.contains('active')),
+        true,
+        'the external restart-button listener must activate the game screen'
+    );
+
     const cameraState = await page.evaluate(() => {
         const video = document.getElementById('webcam');
         const stream = video?.srcObject;

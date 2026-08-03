@@ -2,18 +2,17 @@
 set -euo pipefail
 
 base_url="${BASE_URL:-http://localhost:8080}"
-temporary_files=()
+temporary_directory=$(mktemp -d)
 cleanup() {
-  if [ "${#temporary_files[@]}" -gt 0 ]; then
-    rm -f "${temporary_files[@]}"
-  fi
+  rm -rf -- "$temporary_directory"
 }
-trap cleanup EXIT INT TERM
+trap cleanup EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
 
 headers_for() {
   local path="$1" headers_file status
-  headers_file=$(mktemp)
-  temporary_files+=("$headers_file")
+  headers_file=$(mktemp "$temporary_directory/headers.XXXXXX")
 
   if ! status=$(curl \
     --silent \
