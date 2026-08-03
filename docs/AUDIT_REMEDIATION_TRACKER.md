@@ -33,7 +33,7 @@
 | H-10 | Account lockout concurrency-unsafe, IP limiter counts successes | open | | | | |
 | H-11 | Unbounded leaderboard pages exhaust DB/disk resources | open | | | | |
 | H-12 | Static pages lack security headers, API policy breaks frontend | open | | | | |
-| H-13 | Archive marks project code and directories as world-writable | open | | | | |
+| H-13 | Archive marks project code and directories as world-writable | in_progress | Shared policy, POSIX/Windows validators, release ZIP checks | Linux/Windows fixtures + ZIP metadata/extraction | Pending PR #7 follow-up | Deployment owner/group must apply documented runtime modes |
 | H-14 | v3-to-v3.1 migration not reliably executable | open | | | | |
 | H-15 | Config requires `.env` in web root, ignores process environment | open | | | | |
 | H-16 | Pre-existing security audit provides false release assurance | open | | | | |

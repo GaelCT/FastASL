@@ -10,13 +10,35 @@ permissions:
   contents: read
 
 jobs:
-  permissions:
-    name: Permission checks (H-13)
+  permissions-linux:
+    name: Permission and release checks (H-13 Linux)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Run permission checks
+      - name: Prepare documented runtime paths
+        run: mkdir -p var/log var/cache/leaderboard var/cache/ratelimit && chmod 0750 var var/log var/cache var/cache/leaderboard var/cache/ratelimit
+      - name: Validate source and runtime permissions
         run: bash scripts/check-permissions.sh
+      - name: Run permission and ZIP negative fixtures
+        run: python3 scripts/permission-policy.py self-test
+      - name: Build actual release ZIP
+        run: python3 scripts/permission-policy.py build-release --output dist/fastasl-release.zip
+      - name: Validate stored ZIP metadata
+        run: python3 scripts/permission-policy.py validate-zip --zip dist/fastasl-release.zip
+      - name: Extract and validate release ZIP
+        run: python3 scripts/permission-policy.py extract-validate --zip dist/fastasl-release.zip
+
+  permissions-windows:
+    name: Permission checks (H-13 Windows ACL)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run SID ACL regression fixtures
+        shell: pwsh
+        run: ./scripts/check-permissions.ps1 -SelfTest
+      - name: Validate repository ACLs
+        shell: pwsh
+        run: ./scripts/check-permissions.ps1
 
   php-lint:
     name: PHP syntax check
