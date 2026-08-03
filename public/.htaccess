@@ -2,6 +2,9 @@
 # The web server document root MUST point here (public/).
 # Everything else in the repository is outside the document root.
 
+# Permits the rewrite rules below
+RewriteEngine On
+
 # Permit only the exact lowercase root front controller
 RewriteRule ^index\.php$ - [L]
 

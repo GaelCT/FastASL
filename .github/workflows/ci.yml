@@ -124,12 +124,47 @@ jobs:
           check_denied /Index.Php
           check_denied /index.php/extra
           check_denied /exposure-canary.sql
-          headers=$(mktemp)
-          body=$(mktemp)
-          code=$(curl -s -D "$headers" -o "$body" -w '%{http_code}' http://localhost:8080/index.php)
-          [ "$code" = "200" ] || { echo "FAIL: /index.php returned $code"; exit 1; }
-          grep -qi '<?php' "$body" && { echo "FAIL: PHP source was disclosed"; exit 1; }
-          grep -qi 'application/json' "$headers" || { echo "FAIL: /index.php did not return JSON"; exit 1; }
-          grep -q '"ASL Racer API"' "$body" || { echo "FAIL: unexpected /index.php body"; exit 1; }
+          verify_no_php_source() {
+            path="$1"
+            expected_code="$2"
+            headers=$(mktemp)
+            body=$(mktemp)
+            code=$(curl -sS \
+              -D "$headers" \
+              -o "$body" \
+              -w '%{http_code}' \
+              "http://localhost:8080$path")
+            if [ "$code" != "$expected_code" ]; then
+              echo "FAIL: $path returned $code; expected $expected_code"
+              echo "--- headers ---"
+              cat "$headers"
+              echo "--- body ---"
+              cat "$body"
+              rm -f "$headers" "$body"
+              exit 1
+            fi
+            if grep -Fqi '<?php' "$body"; then
+              echo "FAIL: PHP source was disclosed by $path"
+              cat "$body"
+              rm -f "$headers" "$body"
+              exit 1
+            fi
+            if ! grep -qi '^Content-Type: application/json' "$headers"; then
+              echo "FAIL: $path did not return an application/json content type"
+              cat "$headers"
+              rm -f "$headers" "$body"
+              exit 1
+            fi
+            rm -f "$headers" "$body"
+          }
+          verify_no_php_source /api 200
+          verify_no_php_source /api/ 200
+          verify_no_php_source /index.php 404
+          health_body=$(curl -sS http://localhost:8080/api)
+          printf '%s' "$health_body" | grep -Fq '"ASL Racer API"' || {
+            echo "FAIL: /api did not return the expected health response"
+            printf '%s\n' "$health_body"
+            exit 1
+          }
           echo "Apache exposure smoke test passed"
 
