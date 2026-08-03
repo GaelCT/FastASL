@@ -133,9 +133,18 @@ chmod 0750 var var/log var/cache
 Verify before release:
 
 ```bash
-bash scripts/check-permissions.sh        # Linux/macOS
+bash scripts/check-permissions.sh        # Linux only
 powershell -File scripts/check-permissions.ps1   # Windows
 ```
+
+The POSIX validator intentionally exits nonzero on macOS and other unsupported
+platforms. Run it in the supported Linux CI job or a Linux deployment container.
+
+The release archive requires `backend`, `public`, `database`, `scripts`, and
+`tests` plus the root configuration and deployment files listed in
+`scripts/permission-policy.json`. These entries provide the server code and
+public entry point, migrations, validation tooling and sources, and the runtime
+and deployment configuration contract; `.env` is never included.
 
 ## Project Audit
 
