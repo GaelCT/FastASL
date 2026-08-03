@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ASL Racer | Active Track</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="../style/main.css">
+    <link rel="stylesheet" href="/assets/css/main.css">
 </head>
 <body>
 
@@ -64,20 +64,20 @@
 
             <div class="save-score-section">
                 <input type="text" id="player-name" class="ui-input" placeholder="CONFIRM CALLSIGN" maxlength="12">
-                <button class="action-btn" onclick="saveAndShowLeaderboard()">SUBMIT DATA</button>
+                <button id="save-score-button" class="action-btn">SUBMIT DATA</button>
             </div>
 
             <div class="end-actions">
-                <button class="action-btn secondary" onclick="navigateToDashboard()">MAIN MENU</button>
-                <button class="action-btn" onclick="restartGame()">RACE AGAIN</button>
+                <button id="navigate-dashboard-button" class="action-btn secondary">MAIN MENU</button>
+                <button id="restart-game-button" class="action-btn">RACE AGAIN</button>
             </div>
         </div>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js" crossorigin="anonymous"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
-    <script src="race.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils@0.3.1675466862/camera_utils.js" integrity="sha256-7hTNJB9pNQSp6lX6Ly7Tsk2h98+ASSZxYGnQ0jJDTY4=" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils@0.6.1675466023/control_utils.js" integrity="sha256-PQUiN08rKZsmeD1JMlv9qbxkVoBN5I6Tkt6/PFRQAY0=" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils@0.3.1675466124/drawing_utils.js" integrity="sha256-jSEoZg3kWHX8jLP/IA1kMvyL9VZoKuccFzviT0LqnqM=" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240/hands.js" integrity="sha256-poshyVU9YUOE9/RZYi5G4C48nP33OSkVovodYV4zhHM=" crossorigin="anonymous"></script>
+    <script src="/assets/js/race.js"></script>
 </body>
 </html>

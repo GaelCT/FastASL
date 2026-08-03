@@ -37,6 +37,22 @@ if ($path === '/api' || str_starts_with($path, '/api/')) {
     return true;
 }
 
+/**
+ * Send the static-page policy that Apache applies through public/.htaccess.
+ * API responses deliberately retain SecurityMiddleware's stricter policy.
+ */
+function sendStaticPageSecurityHeaders(string $path): void
+{
+    if ($path === '/race.html') {
+        header("Content-Security-Policy: default-src 'self'; script-src 'self' https://cdn.jsdelivr.net 'wasm-unsafe-eval'; connect-src 'self' https://cdn.jsdelivr.net; style-src 'self' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; media-src 'self' blob:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'");
+        header('Permissions-Policy: geolocation=(), microphone=(), camera=(self)');
+        return;
+    }
+
+    header("Content-Security-Policy: default-src 'self'; script-src 'self'; connect-src 'self'; style-src 'self' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; media-src 'self' blob:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'");
+    header('Permissions-Policy: geolocation=(), microphone=(), camera=()');
+}
+
 // Serve existing static files inside public/ only
 $candidate = realpath($public . $path);
 if ($candidate !== false && str_starts_with($candidate, $public . DIRECTORY_SEPARATOR) && is_file($candidate)) {
@@ -51,6 +67,19 @@ if ($candidate !== false && str_starts_with($candidate, $public . DIRECTORY_SEPA
         http_response_code(404);
         exit;
     }
+
+    // php -S discards headers set before `return false` for its static-file
+    // handler. Serve only the reviewed HTML entry pages ourselves for parity.
+    if (in_array($path, ['/login.html', '/dashboard.html', '/race.html'], true)) {
+        sendStaticPageSecurityHeaders($path);
+        header('Content-Type: text/html; charset=UTF-8');
+        header('Content-Length: ' . (string) filesize($candidate));
+        if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'HEAD') {
+            readfile($candidate);
+        }
+        return true;
+    }
+
     return false;
 }
 

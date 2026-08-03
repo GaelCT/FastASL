@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ASL Racer | Dashboard & Matrix Rankings</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="../style/main.css">
+    <link rel="stylesheet" href="/assets/css/main.css">
 </head>
 <body>
 
@@ -16,14 +16,14 @@
             <p class="subtitle">Continuous Fingerspelling Challenge</p>
 
             <div class="mode-select">
-                <button class="action-btn" onclick="selectRaceConfiguration(60)">60 SECOND RUSH</button>
-                <button class="action-btn secondary" onclick="selectRaceConfiguration(30)">30 SECOND BLITZ</button>
+                <button id="race-60-button" class="action-btn">60 SECOND RUSH</button>
+                <button id="race-30-button" class="action-btn secondary">30 SECOND BLITZ</button>
             </div>
 
             <div class="leaderboard-panel ui-panel">
                 <div class="leaderboard-header-tabs">
-                    <button id="tab-global" class="tab-btn active" onclick="switchLeaderboardScope('global')">GLOBAL MATRIX</button>
-                    <button id="tab-regional" class="tab-btn" onclick="switchLeaderboardScope('regional')">REGIONAL NETWORK</button>
+                    <button id="tab-global" class="tab-btn active">GLOBAL MATRIX</button>
+                    <button id="tab-regional" class="tab-btn">REGIONAL NETWORK</button>
                 </div>
                 <div id="leaderboard-list"></div>
             </div>
@@ -35,6 +35,6 @@
         </div>
     </div>
 
-    <script src="dashboard.js"></script>
+    <script src="/assets/js/dashboard.js"></script>
 </body>
 </html>

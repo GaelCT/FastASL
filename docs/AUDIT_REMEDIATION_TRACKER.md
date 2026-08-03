@@ -23,7 +23,7 @@
 |---|---|---|---|---|---|---|
 | H-01 | Server accepts arbitrary client-provided WPM as authoritative score | open | | | | |
 | H-02 | Required secrets are empty, health endpoint reports false healthy | open | | | | |
-| H-03 | Frontend script paths broken, two conflicting architectures | open | | | | |
+| H-03 | Frontend script paths broken, two conflicting architectures | in_progress | public HTML/JS, static security headers, CI tests | SRI, header, and browser regressions | Pending PR #6 follow-up | Nginx must mirror static-page headers at deployment |
 | H-04 | Core ASL recognition feature not implemented | open | | | | |
 | H-05 | Array inputs cause uncaught TypeErrors and HTTP 500 | open | | | | |
 | H-06 | Auth DB failures leak internals, return wrong HTTP statuses | open | | | | |

@@ -62,7 +62,7 @@ function initMediaPipe() {
         return;
     }
 
-    state.hands = new Hands({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`});
+    state.hands = new Hands({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240/${file}`});
     state.hands.setOptions({ maxNumHands: 1, modelComplexity: 1, minDetectionConfidence: 0.5, minTrackingConfidence: 0.5 });
     state.hands.onResults(handleMediaPipeResults);
 
@@ -280,3 +280,19 @@ function triggerExplosiveFeedback(targetNode) {
 }
 
 document.addEventListener('DOMContentLoaded', verifyAuthAndInitialize);
+
+document.addEventListener('DOMContentLoaded', () => {
+    const saveButton = document.getElementById('save-score-button');
+    const dashboardButton = document.getElementById('navigate-dashboard-button');
+    const restartButton = document.getElementById('restart-game-button');
+
+    if (saveButton) {
+        saveButton.addEventListener('click', saveAndShowLeaderboard);
+    }
+    if (dashboardButton) {
+        dashboardButton.addEventListener('click', navigateToDashboard);
+    }
+    if (restartButton) {
+        restartButton.addEventListener('click', restartGame);
+    }
+});

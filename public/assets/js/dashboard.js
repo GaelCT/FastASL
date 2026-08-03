@@ -57,6 +57,24 @@ function renderLeaderboard() {
 
 // Lifecycle Boot loops
 document.addEventListener('DOMContentLoaded', () => {
+    const race60Button = document.getElementById('race-60-button');
+    const race30Button = document.getElementById('race-30-button');
+    const tabGlobal = document.getElementById('tab-global');
+    const tabRegional = document.getElementById('tab-regional');
+
+    if (race60Button) {
+        race60Button.addEventListener('click', () => selectRaceConfiguration(60));
+    }
+    if (race30Button) {
+        race30Button.addEventListener('click', () => selectRaceConfiguration(30));
+    }
+    if (tabGlobal) {
+        tabGlobal.addEventListener('click', () => switchLeaderboardScope('global'));
+    }
+    if (tabRegional) {
+        tabRegional.addEventListener('click', () => switchLeaderboardScope('regional'));
+    }
+
     authenticateSessionRoute();
     renderLeaderboard();
 });
