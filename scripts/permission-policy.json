@@ -1,0 +1,12 @@
+{
+  "source_roots": ["backend", "public", "database", "docs", "scripts", "src", "tests", ".github"],
+  "source_root_files": ["README.md", "composer.json", "package.json", "package-lock.json", "phpunit.xml.dist", "eslint.config.js", ".env.example", ".gitignore", ".htaccess"],
+  "runtime_root": "var",
+  "runtime_writable_directories": ["var", "var/log", "var/cache", "var/cache/leaderboard", "var/cache/ratelimit"],
+  "runtime_writable_file_parents": ["var/log", "var/cache", "var/cache/leaderboard", "var/cache/ratelimit"],
+  "secret_files": [".env"],
+  "release_roots": ["backend", "public", "database", "docs", "scripts", "src", "tests"],
+  "release_root_files": ["README.md", "composer.json", "package.json", "package-lock.json", "phpunit.xml.dist", "eslint.config.js", ".env.example", ".gitignore", ".htaccess"],
+  "release_required_entries": ["backend", "public", "database", "scripts", "tests", "README.md", "composer.json", "package.json", "package-lock.json", "phpunit.xml.dist", "eslint.config.js", ".env.example", ".htaccess"],
+  "release_excluded": [".env", "var", ".git", ".review", "node_modules", "vendor", "dist", "ASL-Revive-zip", "FastASL", "cache", "logs"]
+}

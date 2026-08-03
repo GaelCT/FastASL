@@ -112,6 +112,40 @@ npm install          # install frontend tooling
 npm run lint         # lint JavaScript
 ```
 
+### Deployment permissions (H-13)
+
+Set explicit permissions at deployment time — do not inherit archive metadata:
+
+```bash
+# Source files: read-only for the runtime user
+find backend public database docs tests scripts -type f -exec chmod 0644 {} \;
+find backend public database docs tests scripts -type d -exec chmod 0755 {} \;
+
+# Secrets: owner-only
+chmod 0600 .env
+
+# Runtime directories: writable only by the application account
+mkdir -p var/log var/cache
+chown -R <app-user>:<app-group> var
+chmod 0750 var var/log var/cache
+```
+
+Verify before release:
+
+```bash
+bash scripts/check-permissions.sh        # Linux only
+powershell -File scripts/check-permissions.ps1   # Windows
+```
+
+The POSIX validator intentionally exits nonzero on macOS and other unsupported
+platforms. Run it in the supported Linux CI job or a Linux deployment container.
+
+The release archive requires `backend`, `public`, `database`, `scripts`, and
+`tests` plus the root configuration and deployment files listed in
+`scripts/permission-policy.json`. These entries provide the server code and
+public entry point, migrations, validation tooling and sources, and the runtime
+and deployment configuration contract; `.env` is never included.
+
 ## Project Audit
 
 Three companion documents provide a detailed security and quality review:

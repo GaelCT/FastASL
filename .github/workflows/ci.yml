@@ -10,6 +10,51 @@ permissions:
   contents: read
 
 jobs:
+  permissions-linux:
+    name: Permission and release checks (H-13 Linux)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Prepare documented runtime paths
+        run: mkdir -p var/log var/cache/leaderboard var/cache/ratelimit && chmod 0750 var var/log var/cache var/cache/leaderboard var/cache/ratelimit
+      - name: Validate source and runtime permissions
+        run: bash scripts/check-permissions.sh
+      - name: Run permission and ZIP negative fixtures
+        run: python3 scripts/permission-policy.py self-test
+      - name: Build actual release ZIP
+        run: python3 scripts/permission-policy.py build-release --output dist/fastasl-release.zip
+      - name: Validate stored ZIP metadata
+        run: python3 scripts/permission-policy.py validate-zip --zip dist/fastasl-release.zip
+      - name: Extract and validate release ZIP
+        run: python3 scripts/permission-policy.py extract-validate --zip dist/fastasl-release.zip
+
+  permissions-windows:
+    name: Permission checks (H-13 Windows ACL)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Harden checkout ACLs for validation
+        shell: pwsh
+        run: |
+          $adminSid = New-Object System.Security.Principal.SecurityIdentifier('S-1-5-32-544')
+          $systemSid = New-Object System.Security.Principal.SecurityIdentifier('S-1-5-18')
+          $ownerSid = [System.Security.Principal.WindowsIdentity]::GetCurrent().User
+          $inheritance = [System.Security.AccessControl.InheritanceFlags]'ContainerInherit, ObjectInherit'
+          $propagation = [System.Security.AccessControl.PropagationFlags]::None
+          $acl = New-Object System.Security.AccessControl.DirectorySecurity
+          $acl.SetAccessRuleProtection($true, $false)
+          foreach ($sid in @($adminSid, $systemSid, $ownerSid)) {
+            $rule = New-Object System.Security.AccessControl.FileSystemAccessRule($sid, 'FullControl', $inheritance, $propagation, 'Allow')
+            [void]$acl.AddAccessRule($rule)
+          }
+          Set-Acl -LiteralPath $env:GITHUB_WORKSPACE -AclObject $acl
+      - name: Run SID ACL regression fixtures
+        shell: pwsh
+        run: ./scripts/check-permissions.ps1 -SelfTest
+      - name: Validate repository ACLs
+        shell: pwsh
+        run: ./scripts/check-permissions.ps1
+
   php-lint:
     name: PHP syntax check
     runs-on: ubuntu-latest
