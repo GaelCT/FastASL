@@ -365,21 +365,97 @@ final class ExposureTest extends TestCase
         $this->assertStringNotContainsString('<?php', $body);
     }
 
+    /**
+     * @return array{properties: list<string>, required: list<string>}
+     */
+    private static function healthSchemaContract(string $spec): array
+    {
+        $start = strpos($spec, "  /:\n");
+        if ($start === false) {
+            throw new \InvalidArgumentException('Health path was not found in OpenAPI spec.');
+        }
+        $end = strpos($spec, "\n  /validate:", $start);
+        if ($end === false) {
+            throw new \InvalidArgumentException('Health path boundary was not found in OpenAPI spec.');
+        }
+        $healthSchema = substr($spec, $start, $end - $start);
+
+        $propertiesStart = strpos($healthSchema, "                properties:\n");
+        if ($propertiesStart === false) {
+            throw new \InvalidArgumentException('Health properties block was not found in OpenAPI spec.');
+        }
+        $propertiesBlock = substr($healthSchema, $propertiesStart);
+        preg_match_all(
+            '/^ {18}([A-Za-z][A-Za-z0-9_-]*):\s*$/m',
+            $propertiesBlock,
+            $propertyMatches
+        );
+        $properties = array_values(array_unique($propertyMatches[1]));
+        sort($properties);
+
+        $requiredStart = strpos($healthSchema, "                required:\n");
+        if ($requiredStart === false || $requiredStart >= $propertiesStart) {
+            throw new \InvalidArgumentException('Health required block was not found in OpenAPI spec.');
+        }
+        $requiredBlock = substr($healthSchema, $requiredStart, $propertiesStart - $requiredStart);
+        preg_match_all(
+            '/^ {18}- ([A-Za-z][A-Za-z0-9_-]*)\s*$/m',
+            $requiredBlock,
+            $requiredMatches
+        );
+        $required = array_values(array_unique($requiredMatches[1]));
+        sort($required);
+
+        return [
+            'properties' => $properties,
+            'required' => $required,
+        ];
+    }
+
     public function testHealthSchemaMatchesRuntimeKeys(): void
     {
         $this->assertHealth('/api');
         $spec = file_get_contents(dirname(__DIR__, 2) . '/backend/openapi.yaml');
         $this->assertNotFalse($spec);
-        $start = strpos($spec, "  /:\n");
-        $end = strpos($spec, "\n  /validate:", $start === false ? 0 : $start);
-        $this->assertNotFalse($start);
-        $this->assertNotFalse($end);
-        $healthSchema = substr($spec, $start, $end - $start);
-        preg_match_all('/^ {18}([A-Za-z][A-Za-z0-9_-]*):\\s*$/m', $healthSchema, $matches);
-        $schemaKeys = array_values(array_unique($matches[1]));
-        sort($schemaKeys);
-        $this->assertSame(['message', 'success', 'timestamp'], $schemaKeys);
-        $this->assertStringNotContainsString('version:', $healthSchema);
+        $contract = self::healthSchemaContract($spec);
+        $expected = ['message', 'success', 'timestamp'];
+
+        $this->assertSame($expected, $contract['properties']);
+        $this->assertSame($expected, $contract['required']);
+        $this->assertNotContains('version', $contract['properties']);
+        $this->assertNotContains('version', $contract['required']);
+    }
+
+    public function testHealthSchemaContractSeparatesPropertiesAndRequired(): void
+    {
+        $spec = <<<'YAML'
+paths:
+  /:
+    get:
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - success
+                  - message
+                  - build
+                properties:
+                  success:
+                    type: boolean
+                  message:
+                    type: string
+                  timestamp:
+                    type: string
+  /validate:
+    post: {}
+YAML;
+        $contract = self::healthSchemaContract($spec);
+
+        $this->assertSame(['message', 'success', 'timestamp'], $contract['properties']);
+        $this->assertSame(['build', 'message', 'success'], $contract['required']);
     }
 
     /**

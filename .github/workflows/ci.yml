@@ -231,31 +231,77 @@ jobs:
             fi
             rm -f "$headers" "$body"
           }
-          verify_no_php_source /api 200
-          verify_no_php_source /api/ 200
           verify_no_php_source /index.php 404
-          health_body=$(curl -sS http://localhost:8080/api || true)
-          printf '%s' "$health_body" | grep -Fq '"success":true' || {
-            echo "FAIL: /api did not return success=true"
-            printf '%s\n' "$health_body"
-            exit 1
+          verify_health_response() {
+            path="$1"
+            headers=$(mktemp)
+            body=$(mktemp)
+            code=$(curl -sS \
+              -D "$headers" \
+              -o "$body" \
+              -w '%{http_code}' \
+              "http://localhost:8080$path" || true)
+            if [ "$code" != "200" ]; then
+              echo "FAIL: $path returned $code; expected 200"
+              cat "$headers" "$body"
+              rm -f "$headers" "$body"
+              return 1
+            fi
+            if grep -qi '^X-Powered-By:' "$headers"; then
+              echo "FAIL: $path disclosed X-Powered-By"
+              cat "$headers"
+              rm -f "$headers" "$body"
+              return 1
+            fi
+            if ! grep -qi '^Content-Type: application/json' "$headers"; then
+              echo "FAIL: $path did not return application/json"
+              cat "$headers"
+              rm -f "$headers" "$body"
+              return 1
+            fi
+            if ! python3 - "$body" "$path" <<'PY'
+          import datetime
+          import json
+          import pathlib
+          import sys
+
+          body_path = pathlib.Path(sys.argv[1])
+          route = sys.argv[2]
+
+          try:
+              payload = json.loads(body_path.read_text(encoding="utf-8"))
+          except Exception as exc:
+              raise SystemExit(f"FAIL: {route} did not return valid JSON: {exc}")
+
+          if not isinstance(payload, dict):
+              raise SystemExit(f"FAIL: {route} JSON root was not an object")
+
+          expected_keys = {"success", "message", "timestamp"}
+          actual_keys = set(payload)
+          if actual_keys != expected_keys:
+              raise SystemExit(
+                  f"FAIL: {route} keys were {sorted(actual_keys)}; expected {sorted(expected_keys)}"
+              )
+          if payload["success"] is not True:
+              raise SystemExit(f"FAIL: {route} success was not boolean true")
+          if payload["message"] != "ASL Racer API":
+              raise SystemExit(f"FAIL: {route} returned an unexpected message")
+          timestamp = payload["timestamp"]
+          if not isinstance(timestamp, str) or not timestamp:
+              raise SystemExit(f"FAIL: {route} timestamp was not a non-empty string")
+          try:
+              datetime.datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
+          except ValueError as exc:
+              raise SystemExit(f"FAIL: {route} timestamp was not ISO-8601: {exc}")
+          PY
+            then
+              rm -f "$headers" "$body"
+              return 1
+            fi
+            rm -f "$headers" "$body"
           }
-          printf '%s' "$health_body" | grep -Fq '"message":"ASL Racer API"' || {
-            echo "FAIL: /api did not return the expected health message"
-            printf '%s\n' "$health_body"
-            exit 1
-          }
-          if printf '%s' "$health_body" | grep -Fq '"version"'; then
-            echo "FAIL: /api disclosed a version field"
-            printf '%s\n' "$health_body"
-            exit 1
-          fi
-          health_body_slash=$(curl -sS http://localhost:8080/api/ || true)
-          printf '%s' "$health_body_slash" | grep -Fq '"success":true' || {
-            echo "FAIL: /api/ did not return success=true"
-            printf '%s\n' "$health_body_slash"
-            exit 1
-          }
+          verify_health_response /api
+          verify_health_response /api/
           verify_static_response() {
             path="$1"
             expected_code="$2"
@@ -282,19 +328,73 @@ jobs:
             headers=$(mktemp)
             body=$(mktemp)
             code=$(curl -sS -D "$headers" -o "$body" -w '%{http_code}' http://localhost:8080/api/nope || true)
-            [ "$code" = "404" ] || { echo "FAIL: /api/nope returned $code"; cat "$headers" "$body"; rm -f "$headers" "$body"; exit 1; }
-            grep -qi '^X-Powered-By:' "$headers" && { echo "FAIL: /api/nope disclosed X-Powered-By"; cat "$headers"; rm -f "$headers" "$body"; exit 1; }
-            grep -qi '^Content-Type: application/json' "$headers" || { echo "FAIL: /api/nope was not JSON"; cat "$headers"; rm -f "$headers" "$body"; exit 1; }
-            grep -Fq '"success":false' "$body" || { echo "FAIL: /api/nope missing success=false"; cat "$body"; rm -f "$headers" "$body"; exit 1; }
-            grep -Fq '"error":"Not found."' "$body" || { echo "FAIL: /api/nope missing exact error"; cat "$body"; rm -f "$headers" "$body"; exit 1; }
+            if [ "$code" != "404" ]; then
+              echo "FAIL: /api/nope returned $code; expected 404"
+              cat "$headers" "$body"
+              rm -f "$headers" "$body"
+              return 1
+            fi
+            if grep -qi '^X-Powered-By:' "$headers"; then
+              echo "FAIL: /api/nope disclosed X-Powered-By"
+              cat "$headers"
+              rm -f "$headers" "$body"
+              return 1
+            fi
+            if ! grep -qi '^Content-Type: application/json' "$headers"; then
+              echo "FAIL: /api/nope was not JSON"
+              cat "$headers"
+              rm -f "$headers" "$body"
+              return 1
+            fi
+            if ! python3 - "$body" <<'PY'
+          import json
+          import pathlib
+          import sys
+
+          try:
+              payload = json.loads(pathlib.Path(sys.argv[1]).read_text(encoding="utf-8"))
+          except Exception as exc:
+              raise SystemExit(f"FAIL: /api/nope did not return valid JSON: {exc}")
+          if not isinstance(payload, dict):
+              raise SystemExit("FAIL: /api/nope JSON root was not an object")
+          expected = {"success": False, "error": "Not found."}
+          if payload != expected:
+              raise SystemExit(f"FAIL: /api/nope returned {payload!r}; expected {expected!r}")
+          PY
+            then
+              rm -f "$headers" "$body"
+              return 1
+            fi
             rm -f "$headers" "$body"
           }
           verify_json_error
-          verify_static_response /index.php/extra 403
-          if curl -sS http://localhost:8080/index.php/extra | grep -Fq '<?php'; then
-            echo "FAIL: disallowed PHP path disclosed source"
-            exit 1
-          fi
+          verify_disallowed_php_response() {
+            path="$1"
+            expected_code="$2"
+            headers=$(mktemp)
+            body=$(mktemp)
+            code=$(curl -sS -D "$headers" -o "$body" -w '%{http_code}' "http://localhost:8080$path" || true)
+            if [ "$code" != "$expected_code" ]; then
+              echo "FAIL: $path returned $code; expected $expected_code"
+              cat "$headers" "$body"
+              rm -f "$headers" "$body"
+              return 1
+            fi
+            if grep -qi '^X-Powered-By:' "$headers"; then
+              echo "FAIL: $path disclosed X-Powered-By"
+              cat "$headers"
+              rm -f "$headers" "$body"
+              return 1
+            fi
+            if grep -Fqi '<?php' "$body" || grep -Fqi 'LEAK' "$body"; then
+              echo "FAIL: $path disclosed PHP source or the exposure marker"
+              cat "$body"
+              rm -f "$headers" "$body"
+              return 1
+            fi
+            rm -f "$headers" "$body"
+          }
+          verify_disallowed_php_response /index.php/extra 403
           echo "Apache exposure smoke test passed"
 
       - name: Verify static-page security headers
