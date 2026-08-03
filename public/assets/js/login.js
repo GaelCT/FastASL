@@ -30,3 +30,11 @@ function executeUserSessionEstablishment(username) {
 
 // Ensure session cleanup if hitting login page directly
 localStorage.removeItem('aslRacerUser');
+
+document.addEventListener('DOMContentLoaded', () => {
+    const loginButton = document.getElementById('login-button');
+
+    if (loginButton) {
+        loginButton.addEventListener('click', handleCredentialsLogin);
+    }
+});

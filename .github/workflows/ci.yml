@@ -64,6 +64,8 @@ jobs:
         run: npm ci
       - name: Run ESLint
         run: npm run lint
+      - name: Verify MediaPipe SRI and public HTML event handlers
+        run: npm run test:frontend-security
 
   openapi:
     name: OpenAPI validation
@@ -81,6 +83,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - name: Install browser-test dependencies
+        run: npm ci
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
       - name: Create non-index PHP test files
         run: |
           mkdir -p public/nested
@@ -103,6 +113,7 @@ jobs:
             -v "$RUNNER_TEMP/env:/var/www/.env:ro" \
             -v "$RUNNER_TEMP/var:/var/www/var" \
             -v "$GITHUB_WORKSPACE/.github/apache-test/htaccess.conf:/etc/apache2/conf-enabled/zz-htaccess.conf:ro" \
+            -v "$GITHUB_WORKSPACE/.github/apache-test/headers.load:/etc/apache2/mods-enabled/headers.load:ro" \
             -p 8080:80 \
             php:8.2-apache@sha256:bf518c4a303e5574b967201f22228f2f39e214afd23dcd6d58c965bc3c008086 \
             bash -c "chown -R www-data:www-data /var/www/var && a2enmod rewrite >/dev/null && exec apache2-foreground"
@@ -171,3 +182,7 @@ jobs:
           }
           echo "Apache exposure smoke test passed"
 
+      - name: Verify static-page security headers
+        run: scripts/test-static-security-headers.sh
+      - name: Run browser static-page security regression
+        run: npm run test:browser-security

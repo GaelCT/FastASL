@@ -5,9 +5,12 @@
     "description": "ASL Racer - A typing race game with ASL integration",
     "scripts": {
         "lint": "eslint public/assets/js/ --ext .js",
-        "lint:fix": "eslint public/assets/js/ --ext .js --fix"
+        "lint:fix": "eslint public/assets/js/ --ext .js --fix",
+        "test:frontend-security": "node scripts/verify-mediapipe-sri.mjs",
+        "test:browser-security": "node tests/Browser/race-security.mjs"
     },
     "devDependencies": {
+        "@playwright/test": "^1.55.0",
         "eslint": "^9.39.5"
     }
 }

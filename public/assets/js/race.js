@@ -280,3 +280,19 @@ function triggerExplosiveFeedback(targetNode) {
 }
 
 document.addEventListener('DOMContentLoaded', verifyAuthAndInitialize);
+
+document.addEventListener('DOMContentLoaded', () => {
+    const saveButton = document.getElementById('save-score-button');
+    const dashboardButton = document.getElementById('navigate-dashboard-button');
+    const restartButton = document.getElementById('restart-game-button');
+
+    if (saveButton) {
+        saveButton.addEventListener('click', saveAndShowLeaderboard);
+    }
+    if (dashboardButton) {
+        dashboardButton.addEventListener('click', navigateToDashboard);
+    }
+    if (restartButton) {
+        restartButton.addEventListener('click', restartGame);
+    }
+});
