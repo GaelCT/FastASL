@@ -1,159 +1,78 @@
-# ASL Racer
+# FastASL — Phase 1: AI-Side Checkpoint (Node Foundation Scaffold)
 
-[![CI](https://github.com/GaelCT/FastASL/actions/workflows/ci.yml/badge.svg)](https://github.com/GaelCT/FastASL/actions/workflows/ci.yml)
+This branch (`reboot/p1-node-baseline`) is the **AI-side Phase 1 checkpoint**
+of the FastASL reboot. The legacy PHP/JWT/Apache implementation has been
+removed and the Node.js/Express tooling scaffold is in place — but the core
+application logic is deliberately **not implemented yet**. It is reserved for
+the human-owned cards (HUMAN-1/2/3) per `docs/CODE_OWNERSHIP.json`.
 
-A typing race game with American Sign Language (ASL) integration.
+## What exists right now
 
-## Project Structure
+- Node.js 24 / Express 5 project setup (plain JavaScript, ES modules).
+- Dependency lockfile (`npm ci` reproducible) with runtime deps:
+  `express`, `helmet`, `pino`, `pino-http`, `zod`; dev deps:
+  `@eslint/js`, `eslint`, `globals`, `supertest`.
+- ESLint (flat config), Node-only CI workflow.
+- Pino logger with credential/header redaction, plus tests proving redaction
+  against serialized output.
+- Safe 404 middleware and final error middleware (implemented, AI-owned).
+- Ownership guard: `docs/CODE_OWNERSHIP.json` +
+  `scripts/check-human-ownership.mjs`, with automated tests for the guard
+  itself.
+- Three preserved page shells rendered as honest placeholders
+  (`/login.html`, `/dashboard.html`, `/race.html`) and the original stylesheet.
 
-```
-ASL-Revive/
-├── public/               # ONLY web-accessible directory
-│   ├── index.php         # API front controller (routes /api/*)
-│   ├── router.php        # Development server router
-│   ├── login.html        # Frontend pages
-│   ├── dashboard.html
-│   ├── race.html
-│   └── assets/           # Frontend assets
-│       ├── js/
-│       └── css/
-├── backend/              # PHP API implementation (NOT web-accessible)
-│   ├── config/
-│   ├── controllers/
-│   ├── middleware/
-│   ├── services/
-│   └── utils/
-├── database/             # SQL schema
-├── docs/                 # Internal documentation
-├── tests/                # PHPUnit tests
-├── var/                  # Runtime logs and cache (created at deployment)
-│   ├── log/
-│   └── cache/
-├── .env                  # Environment configuration (outside public/)
-├── composer.json
-└── package.json
-```
+## What is still a TODO (human-owned; intentionally non-functional)
 
-> **Security note:** Only `public/` is served by the web server. `.env`, `backend/`, `database/`, `docs/`, and `var/` must never be inside the document root.
+The following files contain scaffolding/JSDoc/TODO markers only and throw
+until the human implements them:
 
-## Backend Setup
+- **App composition** — `src/app.js` (`createApp()`): Express app, Helmet,
+  request logging, body limits, static `public/` boundary, `/api` mounting.
+- **Environment validation** — `src/config/env.js` (`loadEnv()`): Zod schema
+  for `NODE_ENV`, `HOST`, `PORT`, `LOG_LEVEL`, `REQUEST_BODY_LIMIT`.
+- **Health routing** — `src/routes/health.js`: the `/api/health` contract.
+- **Server startup** — `src/server.js` (`main()`): listener lifecycle,
+  SIGINT/SIGTERM shutdown.
+- **Integration assertions** — `tests/integration/health.test.js`: all twelve
+  acceptance/exposure assertion groups are `test.todo` placeholders.
 
-### Prerequisites
+Because of this:
 
-- PHP 8.0 or higher
-- MySQL 5.7 or higher
-- Web server (Apache/Nginx) or PHP built-in server
+- `npm run dev` / `npm start` do **not** work yet (the server entry point
+  throws a TODO error by design).
+- `GET /api/health` does **not** exist yet.
+- The integration suite currently reports its assertions as pending TODOs;
+  only the AI-owned unit tests pass today.
 
-### Installation
+## Requirements
 
-1. **Clone the repository**
-   ```bash
-   git clone <repository-url>
-   cd ASL-Revive
-   ```
+- [Node.js 24 LTS](https://nodejs.org/download/release/latest-v24.x/)
 
-2. **Configure environment**
-   ```bash
-   cp .env.example .env
-   ```
-   Edit `.env` with your database credentials and settings:
-   ```env
-   DB_HOST=localhost
-   DB_NAME=asl_racer
-   DB_USER=your_db_user
-   DB_PASS=your_secure_password
-   CORS_ALLOWED_ORIGINS=http://localhost:3000,http://localhost:8080
-   JWT_SECRET=your-access-secret-min-32-chars
-   JWT_REFRESH_SECRET=your-refresh-secret-min-32-chars
-   JWT_EXPIRY_HOURS=1
-   JWT_REFRESH_EXPIRY_HOURS=168
-   ```
-
-3. **Database setup**
-   ```bash
-   mysql -u root -p
-   source database/db.sql;
-   ```
-   For existing installations, see the migration files in `database/`.
-
-4. **Run the application**
-   ```bash
-   php -S 127.0.0.1:8000 -t public public/router.php
-   ```
-
-5. **Access the application**
-   - Frontend: http://localhost:8000/login.html
-   - API: http://localhost:8000/api/
-
-## API Endpoints
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/api/register` | Register a new user |
-| POST | `/api/login` | Authenticate and receive tokens |
-| POST | `/api/refresh` | Refresh access token |
-| POST | `/api/logout` | Invalidate current session |
-| POST | `/api/validate` | Check username availability |
-| GET | `/api/check` | Check username availability (query) |
-| GET | `/api/leaderboard` | Retrieve leaderboard |
-| POST | `/api/score` | Submit race score |
-| GET | `/api/` | Health check |
-
-### Authentication
-
-All protected endpoints require an `Authorization: Bearer <token>` header. Tokens are obtained via `/api/login`.
-
-### Testing
+## Setup
 
 ```bash
-composer install     # install PHP dependencies
-vendor/bin/phpunit   # run PHP tests
-npm install          # install frontend tooling
-npm run lint         # lint JavaScript
+npm ci                 # install exact dependency versions
+cp .env.example .env   # optional locally; validation arrives with HUMAN-3
 ```
 
-### Deployment permissions (H-13)
+Environment variables will be loaded by Node itself via
+`--env-file-if-exists=.env`; there is no dotenv package.
 
-Set explicit permissions at deployment time — do not inherit archive metadata:
+## Verification (current state)
 
 ```bash
-# Source files: read-only for the runtime user
-find backend public database docs tests scripts -type f -exec chmod 0644 {} \;
-find backend public database docs tests scripts -type d -exec chmod 0755 {} \;
+npm run lint               # passes
+npm test                   # AI-owned unit tests pass; HUMAN-3 todos listed
+npm run test:integration   # lists the pending human-owned assertion groups
+npm run check              # lint + tests
 
-# Secrets: owner-only
-chmod 0600 .env
-
-# Runtime directories: writable only by the application account
-mkdir -p var/log var/cache
-chown -R <app-user>:<app-group> var
-chmod 0750 var var/log var/cache
+npm run check:ownership -- <checkpoint-commit>   # ownership guard
 ```
 
-Verify before release:
+## Documentation
 
-```bash
-bash scripts/check-permissions.sh        # Linux only
-powershell -File scripts/check-permissions.ps1   # Windows
-```
-
-The POSIX validator intentionally exits nonzero on macOS and other unsupported
-platforms. Run it in the supported Linux CI job or a Linux deployment container.
-
-The release archive requires `backend`, `public`, `database`, `scripts`, and
-`tests` plus the root configuration and deployment files listed in
-`scripts/permission-policy.json`. These entries provide the server code and
-public entry point, migrations, validation tooling and sources, and the runtime
-and deployment configuration contract; `.env` is never included.
-
-## Project Audit
-
-Three companion documents provide a detailed security and quality review:
-
-- **`ASL_Revive_Project_Audit.md`** — Full security audit with 45 findings (4 critical, 16 high, 18 medium, 7 low)
-- **`ASL_Revive_Human_AI_Fix_Plan.md`** — Learning-oriented remediation plan dividing work between human and AI
-- **`ASL_Revive_Remediation_Guide.md`** — Detailed implementation steps for coding LLMs
-
-## License
-
-This project is licensed under the MIT License.
+- `docs/CODE_OWNERSHIP.json` — which paths are human-owned vs AI-owned.
+- `docs/REBOOT_DECISIONS.md` — locked architecture decisions.
+- `docs/LEGACY_SNAPSHOT.md` — what was deleted and where it lives in history.
+- `docs/HUMAN_AI_WORKLOG.md` — human/AI card tracking with commit IDs.

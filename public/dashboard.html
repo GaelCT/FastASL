@@ -3,38 +3,38 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ASL Racer | Dashboard & Matrix Rankings</title>
+    <title>ASL Racer | Dashboard</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/assets/css/main.css">
 </head>
 <body>
 
     <div id="start-screen" class="screen active">
-        <div class="user-session-badge" id="session-badge">VERIFYING...</div>
         <div class="container">
             <h1>ASL RACER</h1>
             <p class="subtitle">Continuous Fingerspelling Challenge</p>
 
             <div class="mode-select">
-                <button id="race-60-button" class="action-btn">60 SECOND RUSH</button>
-                <button id="race-30-button" class="action-btn secondary">30 SECOND BLITZ</button>
+                <a href="/race.html" class="action-btn">60 SECOND RUSH (COMING IN PHASE 2)</a>
+                <a href="/race.html" class="action-btn secondary">30 SECOND BLITZ (COMING IN PHASE 2)</a>
             </div>
 
             <div class="leaderboard-panel ui-panel">
-                <div class="leaderboard-header-tabs">
-                    <button id="tab-global" class="tab-btn active">GLOBAL MATRIX</button>
-                    <button id="tab-regional" class="tab-btn">REGIONAL NETWORK</button>
+                <div id="leaderboard-list">
+                    <p class="empty-board">Community leaderboard is not available yet.</p>
                 </div>
-                <div id="leaderboard-list"></div>
             </div>
 
             <div class="controls-info">
-                <p><span class="key">KEYBOARD</span> active for testing</p>
-                <p>Form the prompted letters sequentially to advance</p>
+                <p>Practice races are being rebuilt and will be unranked.</p>
+                <p>No accounts, scores, or rankings exist in this build.</p>
+            </div>
+
+            <div class="mode-select">
+                <a href="/login.html" class="action-btn secondary">LOGIN PAGE</a>
             </div>
         </div>
     </div>
 
-    <script src="/assets/js/dashboard.js"></script>
 </body>
 </html>
