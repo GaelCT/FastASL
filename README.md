@@ -1,34 +1,49 @@
-# FastASL — Phase 1 (Clean Reboot and Node Foundation)
+# FastASL — Phase 1: AI-Side Checkpoint (Node Foundation Scaffold)
 
-FastASL is being rebuilt as one understandable Node.js application. This
-repository is currently at the **Phase 1** milestone: the legacy PHP/JWT/Apache
-implementation has been removed and replaced with a small Node.js/Express
-foundation.
+This branch (`reboot/p1-node-baseline`) is the **AI-side Phase 1 checkpoint**
+of the FastASL reboot. The legacy PHP/JWT/Apache implementation has been
+removed and the Node.js/Express tooling scaffold is in place — but the core
+application logic is deliberately **not implemented yet**. It is reserved for
+the human-owned cards (HUMAN-1/2/3) per `docs/CODE_OWNERSHIP.json`.
 
 ## What exists right now
 
-- A Node.js 24 / Express 5 server (plain JavaScript, ES modules).
-- Three static page shells preserved from the original design:
-  `/login.html`, `/dashboard.html`, `/race.html`.
-- `GET /api/health` for process liveness.
-- Static files served from exactly `public/` — nothing else in the repository
-  is web-accessible.
-- Zod-based environment validation (`src/config/env.js`).
-- Structured logging via Pino/Pino HTTP with credential redaction.
-- Helmet security headers.
-- Node-only lint and tests (`node --test` + supertest).
+- Node.js 24 / Express 5 project setup (plain JavaScript, ES modules).
+- Dependency lockfile (`npm ci` reproducible) with runtime deps:
+  `express`, `helmet`, `pino`, `pino-http`, `zod`; dev deps:
+  `@eslint/js`, `eslint`, `globals`, `supertest`.
+- ESLint (flat config), Node-only CI workflow.
+- Pino logger with credential/header redaction, plus tests proving redaction
+  against serialized output.
+- Safe 404 middleware and final error middleware (implemented, AI-owned).
+- Ownership guard: `docs/CODE_OWNERSHIP.json` +
+  `scripts/check-human-ownership.mjs`, with automated tests for the guard
+  itself.
+- Three preserved page shells rendered as honest placeholders
+  (`/login.html`, `/dashboard.html`, `/race.html`) and the original stylesheet.
 
-## What does NOT exist yet (by design)
+## What is still a TODO (human-owned; intentionally non-functional)
 
-These arrive in later phases; nothing here pretends otherwise:
+The following files contain scaffolding/JSDoc/TODO markers only and throw
+until the human implements them:
 
-- Real login, registration, bcrypt, or server-side sessions
-- MySQL persistence
-- Any leaderboard (the pages show honest "not available yet" states)
-- The real race engine (practice mode is being rebuilt in Phase 2)
-- ASL classification of any kind
+- **App composition** — `src/app.js` (`createApp()`): Express app, Helmet,
+  request logging, body limits, static `public/` boundary, `/api` mounting.
+- **Environment validation** — `src/config/env.js` (`loadEnv()`): Zod schema
+  for `NODE_ENV`, `HOST`, `PORT`, `LOG_LEVEL`, `REQUEST_BODY_LIMIT`.
+- **Health routing** — `src/routes/health.js`: the `/api/health` contract.
+- **Server startup** — `src/server.js` (`main()`): listener lifecycle,
+  SIGINT/SIGTERM shutdown.
+- **Integration assertions** — `tests/integration/health.test.js`: all twelve
+  acceptance/exposure assertion groups are `test.todo` placeholders.
 
-The login, dashboard, and race pages are intentionally truthful placeholders.
+Because of this:
+
+- `npm run dev` / `npm start` do **not** work yet (the server entry point
+  throws a TODO error by design).
+- `GET /api/health` does **not** exist yet.
+- The integration suite currently reports its assertions as pending TODOs;
+  only the AI-owned unit tests pass today.
 
 ## Requirements
 
@@ -38,37 +53,26 @@ The login, dashboard, and race pages are intentionally truthful placeholders.
 
 ```bash
 npm ci                 # install exact dependency versions
-cp .env.example .env   # optional locally; fill in values you understand
+cp .env.example .env   # optional locally; validation arrives with HUMAN-3
 ```
 
-Environment variables are loaded by Node itself via
-`--env-file-if-exists=.env`; there is no dotenv package. Validation rules live
-in `src/config/env.js`.
+Environment variables will be loaded by Node itself via
+`--env-file-if-exists=.env`; there is no dotenv package.
 
-## Running
-
-```bash
-npm run dev    # watch mode
-npm start      # normal start
-```
-
-## Verification
+## Verification (current state)
 
 ```bash
-npm run lint               # ESLint
-npm test                   # unit + integration tests (Node test runner)
-npm run test:integration   # integration tests only
+npm run lint               # passes
+npm test                   # AI-owned unit tests pass; HUMAN-3 todos listed
+npm run test:integration   # lists the pending human-owned assertion groups
 npm run check              # lint + tests
-```
 
-Ownership protection (see `docs/CODE_OWNERSHIP.json`):
-
-```bash
-npm run check:ownership -- <human-checkpoint-commit>
+npm run check:ownership -- <checkpoint-commit>   # ownership guard
 ```
 
 ## Documentation
 
+- `docs/CODE_OWNERSHIP.json` — which paths are human-owned vs AI-owned.
 - `docs/REBOOT_DECISIONS.md` — locked architecture decisions.
 - `docs/LEGACY_SNAPSHOT.md` — what was deleted and where it lives in history.
-- `docs/HUMAN_AI_WORKLOG.md` — human/AI card tracking.
+- `docs/HUMAN_AI_WORKLOG.md` — human/AI card tracking with commit IDs.

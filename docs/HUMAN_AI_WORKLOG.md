@@ -50,7 +50,7 @@ Branch: `reboot/p1-node-baseline`
 
 | Owner | Card | Task | Started | Finished | Actual time | Commit | Notes |
 |-------|------|------|---------|----------|-------------|--------|-------|
-| AI | AI-2 | Node/tooling scaffold + AI-owned infra | 2026-08-23 | 2026-08-23 | n/a (AI) | (see git log) | Five human-owned files contain TODO scaffolds only |
+| AI | AI-2 | Node/tooling scaffold + AI-owned infra | 2026-08-23 | 2026-08-23 | n/a (AI) | 26866502a2de67ea17a0d713337751befaffabf9 | Five human-owned files contain TODO scaffolds only |
 
 ### AI-3 — Documentation, CI, and temporary page truthfulness
 
@@ -64,7 +64,7 @@ Branch: `reboot/p1-node-baseline`
 
 | Owner | Card | Task | Started | Finished | Actual time | Commit | Notes |
 |-------|------|------|---------|----------|-------------|--------|-------|
-| AI | AI-3 | Docs, CI, truthful temporary UI | 2026-08-23 | 2026-08-23 | n/a (AI) | (see git log) | No fake users/sessions/tokens/leaderboard created |
+| AI | AI-3 | Docs, CI, truthful temporary UI | 2026-08-23 | 2026-08-23 | n/a (AI) | d0ab7c92c22c4f0593f9baae7a040f783cd72fd2 | No fake users/sessions/tokens/leaderboard created |
 
 ### HUMAN-1 — Express application composition (`src/app.js`)
 
