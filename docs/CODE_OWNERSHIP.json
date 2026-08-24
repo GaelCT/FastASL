@@ -1,0 +1,36 @@
+{
+  "version": 1,
+  "phase": 1,
+  "description": "FastASL code ownership manifest. HUMAN-OWNED implementation paths must not be implemented, overwritten, or duplicated by AI. See FASTASL_NODE_REBOOT_4_PHASE_PLAN.md for the ownership rules.",
+  "ownership": {
+    "HUMAN-OWNED": [
+      "src/app.js",
+      "src/server.js",
+      "src/routes/health.js",
+      "src/config/env.js",
+      "tests/integration/health.test.js"
+    ],
+    "AI-OWNED": [
+      "src/lib/logger.js",
+      "src/middleware/not-found.js",
+      "src/middleware/error-handler.js",
+      "scripts/check-human-ownership.mjs",
+      "eslint.config.js",
+      ".github/workflows/ci.yml",
+      "tests/unit/logger-redaction.test.js",
+      ".gitattributes",
+      ".env.example",
+      ".gitignore",
+      "package.json",
+      "README.md"
+    ],
+    "SHARED-INTERFACE": []
+  },
+  "notes": {
+    "src/app.js": "HUMAN-1: Express application composition (no listen).",
+    "src/server.js": "HUMAN-2: server lifecycle and graceful shutdown.",
+    "src/routes/health.js": "HUMAN-2: GET /api/health response contract.",
+    "src/config/env.js": "HUMAN-3: only module allowed to read process.env; Zod validation contract.",
+    "tests/integration/health.test.js": "HUMAN-3: acceptance and exposure assertions."
+  }
+}

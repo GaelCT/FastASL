@@ -1,45 +1,38 @@
-# Environment variables
+# Secrets / environment
 .env
+.env.*
+!.env.example
 
-# Logs
+# Dependencies
+node_modules/
+
+# Node/npm
+npm-debug.log*
+.npm/
+
+# Test coverage
+coverage/
+.nyc_output/
+
+# Logs and temp files
 logs/
 *.log
+tmp/
+temp/
 
-# Cache
-cache/
-var/
-
-# OS files
+# OS junk
 .DS_Store
 Thumbs.db
+desktop.ini
+
+# Editor junk
+.vscode/
+.idea/
 *.swp
 *.swo
 *~
-*.pdf
-
-# IDE
-.vscode/
-.idea/
 *.sublime-*
 
-# Composer
-/vendor/
-
-# Node
-node_modules/
-
-# PHP
-.php_cs.cache
-.phpunit.result.cache
-.phpunit.cache/
-
-# Archive snapshots
-ASL-Revive-zip/
-ASL-Revive-zip.zip
-
-# Nested git repo
-FastASL/
-
-# Review artifacts
+# Review bundle working artifacts (kept out of the repo; delivered separately)
 .review/
 .review.zip
