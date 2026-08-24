@@ -1,159 +1,74 @@
-# ASL Racer
+# FastASL — Phase 1 (Clean Reboot and Node Foundation)
 
-[![CI](https://github.com/GaelCT/FastASL/actions/workflows/ci.yml/badge.svg)](https://github.com/GaelCT/FastASL/actions/workflows/ci.yml)
+FastASL is being rebuilt as one understandable Node.js application. This
+repository is currently at the **Phase 1** milestone: the legacy PHP/JWT/Apache
+implementation has been removed and replaced with a small Node.js/Express
+foundation.
 
-A typing race game with American Sign Language (ASL) integration.
+## What exists right now
 
-## Project Structure
+- A Node.js 24 / Express 5 server (plain JavaScript, ES modules).
+- Three static page shells preserved from the original design:
+  `/login.html`, `/dashboard.html`, `/race.html`.
+- `GET /api/health` for process liveness.
+- Static files served from exactly `public/` — nothing else in the repository
+  is web-accessible.
+- Zod-based environment validation (`src/config/env.js`).
+- Structured logging via Pino/Pino HTTP with credential redaction.
+- Helmet security headers.
+- Node-only lint and tests (`node --test` + supertest).
 
-```
-ASL-Revive/
-├── public/               # ONLY web-accessible directory
-│   ├── index.php         # API front controller (routes /api/*)
-│   ├── router.php        # Development server router
-│   ├── login.html        # Frontend pages
-│   ├── dashboard.html
-│   ├── race.html
-│   └── assets/           # Frontend assets
-│       ├── js/
-│       └── css/
-├── backend/              # PHP API implementation (NOT web-accessible)
-│   ├── config/
-│   ├── controllers/
-│   ├── middleware/
-│   ├── services/
-│   └── utils/
-├── database/             # SQL schema
-├── docs/                 # Internal documentation
-├── tests/                # PHPUnit tests
-├── var/                  # Runtime logs and cache (created at deployment)
-│   ├── log/
-│   └── cache/
-├── .env                  # Environment configuration (outside public/)
-├── composer.json
-└── package.json
-```
+## What does NOT exist yet (by design)
 
-> **Security note:** Only `public/` is served by the web server. `.env`, `backend/`, `database/`, `docs/`, and `var/` must never be inside the document root.
+These arrive in later phases; nothing here pretends otherwise:
 
-## Backend Setup
+- Real login, registration, bcrypt, or server-side sessions
+- MySQL persistence
+- Any leaderboard (the pages show honest "not available yet" states)
+- The real race engine (practice mode is being rebuilt in Phase 2)
+- ASL classification of any kind
 
-### Prerequisites
+The login, dashboard, and race pages are intentionally truthful placeholders.
 
-- PHP 8.0 or higher
-- MySQL 5.7 or higher
-- Web server (Apache/Nginx) or PHP built-in server
+## Requirements
 
-### Installation
+- [Node.js 24 LTS](https://nodejs.org/download/release/latest-v24.x/)
 
-1. **Clone the repository**
-   ```bash
-   git clone <repository-url>
-   cd ASL-Revive
-   ```
-
-2. **Configure environment**
-   ```bash
-   cp .env.example .env
-   ```
-   Edit `.env` with your database credentials and settings:
-   ```env
-   DB_HOST=localhost
-   DB_NAME=asl_racer
-   DB_USER=your_db_user
-   DB_PASS=your_secure_password
-   CORS_ALLOWED_ORIGINS=http://localhost:3000,http://localhost:8080
-   JWT_SECRET=your-access-secret-min-32-chars
-   JWT_REFRESH_SECRET=your-refresh-secret-min-32-chars
-   JWT_EXPIRY_HOURS=1
-   JWT_REFRESH_EXPIRY_HOURS=168
-   ```
-
-3. **Database setup**
-   ```bash
-   mysql -u root -p
-   source database/db.sql;
-   ```
-   For existing installations, see the migration files in `database/`.
-
-4. **Run the application**
-   ```bash
-   php -S 127.0.0.1:8000 -t public public/router.php
-   ```
-
-5. **Access the application**
-   - Frontend: http://localhost:8000/login.html
-   - API: http://localhost:8000/api/
-
-## API Endpoints
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/api/register` | Register a new user |
-| POST | `/api/login` | Authenticate and receive tokens |
-| POST | `/api/refresh` | Refresh access token |
-| POST | `/api/logout` | Invalidate current session |
-| POST | `/api/validate` | Check username availability |
-| GET | `/api/check` | Check username availability (query) |
-| GET | `/api/leaderboard` | Retrieve leaderboard |
-| POST | `/api/score` | Submit race score |
-| GET | `/api/` | Health check |
-
-### Authentication
-
-All protected endpoints require an `Authorization: Bearer <token>` header. Tokens are obtained via `/api/login`.
-
-### Testing
+## Setup
 
 ```bash
-composer install     # install PHP dependencies
-vendor/bin/phpunit   # run PHP tests
-npm install          # install frontend tooling
-npm run lint         # lint JavaScript
+npm ci                 # install exact dependency versions
+cp .env.example .env   # optional locally; fill in values you understand
 ```
 
-### Deployment permissions (H-13)
+Environment variables are loaded by Node itself via
+`--env-file-if-exists=.env`; there is no dotenv package. Validation rules live
+in `src/config/env.js`.
 
-Set explicit permissions at deployment time — do not inherit archive metadata:
+## Running
 
 ```bash
-# Source files: read-only for the runtime user
-find backend public database docs tests scripts -type f -exec chmod 0644 {} \;
-find backend public database docs tests scripts -type d -exec chmod 0755 {} \;
-
-# Secrets: owner-only
-chmod 0600 .env
-
-# Runtime directories: writable only by the application account
-mkdir -p var/log var/cache
-chown -R <app-user>:<app-group> var
-chmod 0750 var var/log var/cache
+npm run dev    # watch mode
+npm start      # normal start
 ```
 
-Verify before release:
+## Verification
 
 ```bash
-bash scripts/check-permissions.sh        # Linux only
-powershell -File scripts/check-permissions.ps1   # Windows
+npm run lint               # ESLint
+npm test                   # unit + integration tests (Node test runner)
+npm run test:integration   # integration tests only
+npm run check              # lint + tests
 ```
 
-The POSIX validator intentionally exits nonzero on macOS and other unsupported
-platforms. Run it in the supported Linux CI job or a Linux deployment container.
+Ownership protection (see `docs/CODE_OWNERSHIP.json`):
 
-The release archive requires `backend`, `public`, `database`, `scripts`, and
-`tests` plus the root configuration and deployment files listed in
-`scripts/permission-policy.json`. These entries provide the server code and
-public entry point, migrations, validation tooling and sources, and the runtime
-and deployment configuration contract; `.env` is never included.
+```bash
+npm run check:ownership -- <human-checkpoint-commit>
+```
 
-## Project Audit
+## Documentation
 
-Three companion documents provide a detailed security and quality review:
-
-- **`ASL_Revive_Project_Audit.md`** — Full security audit with 45 findings (4 critical, 16 high, 18 medium, 7 low)
-- **`ASL_Revive_Human_AI_Fix_Plan.md`** — Learning-oriented remediation plan dividing work between human and AI
-- **`ASL_Revive_Remediation_Guide.md`** — Detailed implementation steps for coding LLMs
-
-## License
-
-This project is licensed under the MIT License.
+- `docs/REBOOT_DECISIONS.md` — locked architecture decisions.
+- `docs/LEGACY_SNAPSHOT.md` — what was deleted and where it lives in history.
+- `docs/HUMAN_AI_WORKLOG.md` — human/AI card tracking.

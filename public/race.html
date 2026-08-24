@@ -10,74 +10,26 @@
 <body>
 
     <div id="game-screen" class="screen active">
-        <div class="game-hud">
-            <div class="stat-box">
-                <div class="stat-label">TIME</div>
-                <div id="timer" class="stat-value">60</div>
-            </div>
-            <div class="stat-box">
-                <div class="stat-label">WPM</div>
-                <div id="wpm" class="stat-value">0</div>
-            </div>
-            <div class="stat-box">
-                <div class="stat-label">STREAK</div>
-                <div id="streak" class="stat-value text-accent">0</div>
-            </div>
-        </div>
-
-        <div class="game-main">
-            <div id="sentence-display" class="sentence-container"></div>
-            <div id="prompt-sub">SIGN THE HIGHLIGHTED LETTER</div>
-        </div>
-
-        <div class="webcam-section">
-            <div class="webcam-container">
-                <video id="webcam" playsinline></video>
-                <canvas id="output-canvas"></canvas>
-                <div class="tracking-status" id="tracking-status">INITIALIZING CAMERA...</div>
-            </div>
-            <div class="api-status" id="api-status">
-                <span class="status-dot"></span>
-                DEV MODE: Keyboard acts as local vision classification override
-            </div>
-        </div>
-    </div>
-
-    <div id="end-screen" class="screen">
         <div class="container">
-            <h1>RACE COMPLETE</h1>
+            <h1>PRACTICE RACE</h1>
+            <p class="subtitle">UNDER RECONSTRUCTION</p>
 
-            <div class="results-grid">
-                <div class="result-card ui-panel">
-                    <div class="stat-label">SPEED</div>
-                    <div id="final-wpm" class="big-stat">0 WPM</div>
-                </div>
-                <div class="result-card ui-panel">
-                    <div class="stat-label">MAX STREAK</div>
-                    <div id="final-streak" class="big-stat">0</div>
-                </div>
-                <div class="result-card ui-panel">
-                    <div class="stat-label">ACCURACY</div>
-                    <div id="final-accuracy" class="big-stat">0%</div>
-                </div>
-            </div>
-
-            <div class="save-score-section">
-                <input type="text" id="player-name" class="ui-input" placeholder="CONFIRM CALLSIGN" maxlength="12">
-                <button id="save-score-button" class="action-btn">SUBMIT DATA</button>
+            <div class="leaderboard-panel ui-panel">
+                <p class="empty-board">
+                    Practice race functionality is being rebuilt and will return as an
+                    unranked practice mode in a later phase.
+                </p>
+                <p class="empty-board">
+                    This build does not perform ASL recognition, does not score races,
+                    and does not submit any results.
+                </p>
             </div>
 
             <div class="end-actions">
-                <button id="navigate-dashboard-button" class="action-btn secondary">MAIN MENU</button>
-                <button id="restart-game-button" class="action-btn">RACE AGAIN</button>
+                <a href="/dashboard.html" class="action-btn secondary">MAIN MENU</a>
             </div>
         </div>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils@0.3.1675466862/camera_utils.js" integrity="sha256-7hTNJB9pNQSp6lX6Ly7Tsk2h98+ASSZxYGnQ0jJDTY4=" crossorigin="anonymous"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils@0.6.1675466023/control_utils.js" integrity="sha256-PQUiN08rKZsmeD1JMlv9qbxkVoBN5I6Tkt6/PFRQAY0=" crossorigin="anonymous"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils@0.3.1675466124/drawing_utils.js" integrity="sha256-jSEoZg3kWHX8jLP/IA1kMvyL9VZoKuccFzviT0LqnqM=" crossorigin="anonymous"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240/hands.js" integrity="sha256-poshyVU9YUOE9/RZYi5G4C48nP33OSkVovodYV4zhHM=" crossorigin="anonymous"></script>
-    <script src="/assets/js/race.js"></script>
 </body>
 </html>
