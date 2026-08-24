@@ -1,0 +1,23 @@
+# FastASL line-ending policy (Phase 1, AI-1).
+# Source and configuration files are stored and checked out with LF so that
+# CRLF-only changes never pollute reboot diffs on Windows checkouts.
+* text=auto eol=lf
+
+# Windows-only scripts keep CRLF.
+*.ps1 text eol=crlf
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# Binary assets must never be normalized.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.ico binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.otf binary
+*.pdf binary
+*.zip binary

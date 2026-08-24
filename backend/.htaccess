@@ -1,9 +1,0 @@
-# ASL Racer — backend/.htaccess
-# The backend directory must NEVER be inside the web document root.
-# This file is defense in depth: deny all direct access.
-
-Require all denied
-
-<FilesMatch "^\.">
-    Require all denied
-</FilesMatch>
