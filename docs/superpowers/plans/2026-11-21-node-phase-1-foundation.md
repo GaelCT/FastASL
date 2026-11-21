@@ -15,6 +15,7 @@
 - Plain JavaScript ES modules on Node.js 24; no TypeScript, PHP, JWT, database, authentication, classifier, scores, or leaderboard in Phase 1.
 - `public/` is the only static document root; neither the repository root nor a parent directory may be passed to `express.static()`.
 - Health returns exactly `{ "status": "ok" }` and reveals no version or environment details.
+- Preserve the existing failure contracts: 404 `{ "error": "Not found" }`, parser/client 4xx `{ "error": "Request failed" }`, and 500 `{ "error": "Internal server error" }`; malformed JSON is 400, oversized bodies are 413, and unsupported health methods are 404.
 - No fake application behavior, hard-coded secrets, new production dependencies, approval, merge, or deployment.
 - Only `src/config/env.js` reads `process.env` in application code. Tests and process-launch tooling may set it.
 - All ordinary checks run through `npm run check`; workflow artifacts remain untracked.
@@ -104,7 +105,7 @@ Use Zod enums for `NODE_ENV=development|test|production` and `LOG_LEVEL=fatal|er
 
 - [ ] **Step 4: Record the owner-approved reassignment**
 
-Move the five former HUMAN-OWNED Phase 1 scaffold paths to AI-OWNED in the manifest, preserving exactly one entry per tracked path. Update notes and worklog to say the project owner requested AI continuation on 2026-11-21 and retains phase-gate review. Replace the variable-names-only `.env.example` warning with the actual defaults and accepted ranges; leave real `.env` files ignored.
+Move the five former HUMAN-OWNED Phase 1 scaffold paths to AI-OWNED and move `docs/REBOOT_DECISIONS.md` to HUMAN-OWNED, preserving exactly one entry per tracked path and a nonempty human-owned set for the existing ownership checker. Update notes and worklog to say the project owner requested AI continuation on 2026-11-21 and retains architecture decisions and phase-gate review. Replace the variable-names-only `.env.example` warning with the actual defaults and accepted ranges; leave real `.env` files ignored.
 
 - [ ] **Step 5: Run tests to verify they pass**
 
