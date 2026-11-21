@@ -1,0 +1,14 @@
+{
+  "browser": {
+    "browserName": "chromium",
+    "launchOptions": {
+      "headless": true
+    }
+  },
+  "outputDir": "artifacts/issue-to-pr/browser",
+  "network": {
+    "allowedOrigins": [
+      "http://127.0.0.1:3000"
+    ]
+  }
+}

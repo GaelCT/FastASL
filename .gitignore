@@ -19,6 +19,8 @@ logs/
 *.log
 tmp/
 temp/
+__pycache__/
+*.py[cod]
 
 # OS junk
 .DS_Store
@@ -36,3 +38,4 @@ desktop.ini
 # Review bundle working artifacts (kept out of the repo; delivered separately)
 .review/
 .review.zip
+artifacts/issue-to-pr/

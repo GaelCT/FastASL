@@ -1,0 +1,61 @@
+name: Agent task
+description: Define a bounded task for a coding agent. This issue is the spec for /issue-to-pr.
+title: "[Agent task]: "
+body:
+  - type: textarea
+    id: objective
+    attributes:
+      label: Objective
+      description: State one observable outcome, not a list of activities.
+    validations:
+      required: true
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Required context
+      description: Link the requirements, design documents and source files the agent must read.
+    validations:
+      required: false
+
+  - type: textarea
+    id: boundaries
+    attributes:
+      label: Scope boundaries
+      description: List repository paths. The loop needs at least one in-scope path, and its paths decide whether a run stops for plan review.
+      value: |
+        In scope:
+        -
+
+        Out of scope:
+        -
+
+        Prohibited actions:
+        -
+    validations:
+      required: true
+
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      description: Provide behavior-level, independently verifiable criteria.
+    validations:
+      required: true
+
+  - type: textarea
+    id: verification
+    attributes:
+      label: Verification commands
+      description: One command per line, and commands only. The verifier runs each one exactly as written, on top of the repository's full check.
+      render: shell
+    validations:
+      required: true
+
+  - type: input
+    id: owner
+    attributes:
+      label: Owner
+      description: The person responsible for reviewing and merging the result.
+    validations:
+      required: false

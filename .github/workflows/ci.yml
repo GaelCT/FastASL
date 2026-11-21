@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main, "reboot/**"]
+    branches: [main, node, "reboot/**"]
   pull_request:
 
 permissions:
