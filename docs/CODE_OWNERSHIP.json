@@ -1,14 +1,10 @@
 {
   "version": 2,
   "phase": 1,
-  "description": "FastASL code ownership manifest. HUMAN-OWNED implementation paths must not be implemented, overwritten, or duplicated by AI. Every tracked path in the repository is listed exactly once. See FASTASL_NODE_REBOOT_4_PHASE_PLAN.md for the ownership rules.",
+  "description": "FastASL code ownership manifest. HUMAN-OWNED implementation paths must not be implemented, overwritten, or duplicated by AI. Every tracked path in the repository is listed exactly once. The project owner reassigned the five Phase 1 implementation scaffolds to AI on 2026-11-21; architecture decisions and phase gates remain human-owned.",
   "ownership": {
     "HUMAN-OWNED": [
-      "src/app.js",
-      "src/server.js",
-      "src/routes/health.js",
-      "src/config/env.js",
-      "tests/integration/health.test.js"
+      "docs/REBOOT_DECISIONS.md"
     ],
     "AI-OWNED": [
       ".agents/skills/agent-task/SKILL.md",
@@ -37,7 +33,6 @@
       "docs/CODE_OWNERSHIP.json",
       "docs/HUMAN_AI_WORKLOG.md",
       "docs/LEGACY_SNAPSHOT.md",
-      "docs/REBOOT_DECISIONS.md",
       "docs/issue-to-pr.md",
       "docs/superpowers/plans/2026-11-21-node-phase-1-foundation.md",
       "eslint.config.js",
@@ -48,20 +43,31 @@
       "public/login.html",
       "public/race.html",
       "scripts/check-human-ownership.mjs",
+      "src/app.js",
+      "src/config/env.js",
       "src/lib/logger.js",
       "src/middleware/error-handler.js",
       "src/middleware/not-found.js",
+      "src/middleware/public-static.js",
+      "src/routes/health.js",
+      "src/server.js",
+      "tests/integration/health.test.js",
+      "tests/integration/request-errors.test.js",
+      "tests/integration/static-exposure.test.js",
       "tests/unit/check-human-ownership.test.js",
-      "tests/unit/logger-redaction.test.js"
+      "tests/unit/env.test.js",
+      "tests/unit/logger-redaction.test.js",
+      "tests/unit/server.test.js"
     ],
     "SHARED-INTERFACE": []
   },
   "notes": {
-    "src/app.js": "HUMAN-1: Express application composition (no listen).",
-    "src/server.js": "HUMAN-2: server lifecycle and graceful shutdown.",
-    "src/routes/health.js": "HUMAN-2: GET /api/health response contract.",
-    "src/config/env.js": "HUMAN-3: only module allowed to read process.env; Zod validation contract.",
-    "tests/integration/health.test.js": "HUMAN-3: acceptance and exposure assertions.",
+    "docs/REBOOT_DECISIONS.md": "HUMAN-OWNED: locked architecture decisions; moved from AI-OWNED during the owner-approved Phase 1 reassignment on 2026-11-21.",
+    "src/app.js": "AI-OWNED: Express application composition (no listen), formerly HUMAN-1 and reassigned by the project owner on 2026-11-21.",
+    "src/server.js": "AI-OWNED: server lifecycle and graceful shutdown, formerly HUMAN-2 and reassigned by the project owner on 2026-11-21.",
+    "src/routes/health.js": "AI-OWNED: GET /api/health response contract, formerly HUMAN-2 and reassigned by the project owner on 2026-11-21.",
+    "src/config/env.js": "AI-OWNED: only module allowed to read process.env; Zod validation contract, formerly HUMAN-3 and reassigned by the project owner on 2026-11-21.",
+    "tests/integration/health.test.js": "AI-OWNED: acceptance and exposure assertions, formerly HUMAN-3 and reassigned by the project owner on 2026-11-21.",
     "tests/unit/check-human-ownership.test.js": "AI-owned automated tests for scripts/check-human-ownership.mjs."
   }
 }

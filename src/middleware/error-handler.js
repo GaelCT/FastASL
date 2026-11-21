@@ -12,11 +12,11 @@ import logger from "../lib/logger.js";
  * no domain-specific error mapping.
  *
  * @param {unknown} error
- * @param {import("express").Request} _req
+ * @param {import("express").Request} req
  * @param {import("express").Response} res
  * @param {import("express").NextFunction} _next
  */
-export function errorHandler(error, _req, res, _next) {
+export function errorHandler(error, req, res, _next) {
   const rawStatus =
     typeof error === "object" && error !== null
       ? (error.status ?? error.statusCode)
@@ -26,7 +26,8 @@ export function errorHandler(error, _req, res, _next) {
       ? rawStatus
       : 500;
 
-  logger.error({ err: error }, "Unhandled request error");
+  const requestLogger = req.log ?? logger;
+  requestLogger.error({ err: error }, "Unhandled request error");
 
   res.status(status).json({
     error: status >= 500 ? "Internal server error" : "Request failed",

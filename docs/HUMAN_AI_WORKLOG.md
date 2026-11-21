@@ -66,58 +66,51 @@ Branch: `reboot/p1-node-baseline`
 |-------|------|------|---------|----------|-------------|--------|-------|
 | AI | AI-3 | Docs, CI, truthful temporary UI | 2026-08-23 | 2026-08-23 | n/a (AI) | d0ab7c92c22c4f0593f9baae7a040f783cd72fd2 | No fake users/sessions/tokens/leaderboard created |
 
-### HUMAN-1 — Express application composition (`src/app.js`)
+### Owner-approved reassignment — 2026-11-21
 
-Checklist for the human (one small behavior at a time):
+The project owner explicitly requested AI continuation of the five former
+HUMAN-1/2/3 Phase 1 TODO scaffolds in issue #11. AI-4/5/6 below supersede the
+old human implementation assignments. Human ownership is retained for
+`docs/REBOOT_DECISIONS.md`, architecture-decision review, PR review, and the
+phase gate. This reassignment does not authorize Phase 2–4 behavior.
 
-- [ ] Create the Express application without calling `listen()`.
-- [ ] Disable `x-powered-by`.
-- [ ] Add bounded JSON body parsing.
-- [ ] Mount Helmet (security middleware placement).
-- [ ] Mount request logging (pino-http via the shared logger config).
-- [ ] Serve static files from exactly `public/` (never the repo root).
-- [ ] Mount `/api` routes.
-- [ ] Mount 404 middleware, then error middleware last.
-- [ ] Run lint + narrow tests; explain middleware order in your own words.
+### AI-4 — Express application composition (`src/app.js`; formerly HUMAN-1)
 
-| Owner | Card | Task | Started | Finished | Actual time | Commit | Notes |
-|-------|------|------|---------|----------|-------------|--------|-------|
-| HUMAN | HUMAN-1 | Implement `src/app.js` | | | | | |
-
-### HUMAN-2 — Server lifecycle and health route (`src/server.js`, `src/routes/health.js`)
-
-Checklist for the human:
-
-- [ ] Health route first: create router, add `GET /health` (mounted under `/api`), return minimal reviewed JSON.
-- [ ] Mount the health router through the human app composition.
-- [ ] Import validated env configuration in `src/server.js`.
-- [ ] Start listener on configured host/port; handle startup failure.
-- [ ] Implement graceful shutdown helper; connect `SIGINT` and `SIGTERM`; prevent duplicate shutdown handling.
-- [ ] Test manual startup/shutdown.
+- [x] Create the Express application without calling `listen()`.
+- [x] Disable `x-powered-by`.
+- [x] Add bounded JSON body parsing.
+- [x] Mount Helmet and redacting pino-http request logging.
+- [x] Serve static regular files from exactly `public/`, with lexical and real-path symlink boundary checks.
+- [x] Mount `/api` routes, then 404 and final error middleware in order.
+- [x] Add health, page, header, exposure, traversal, and request-error integration tests.
 
 | Owner | Card | Task | Started | Finished | Actual time | Commit | Notes |
 |-------|------|------|---------|----------|-------------|--------|-------|
-| HUMAN | HUMAN-2 | Implement health route | | | | | |
-| HUMAN | HUMAN-2 | Implement server lifecycle | | | | | |
+| AI | AI-4 | Secure app/static composition and integration cases | 2026-11-21 | 2026-11-21 | n/a (AI) | agent/issue-11 change | Focused integration tests pass; Windows symlink creation denied with EPERM, so only that canary is explicitly skipped/unverified |
 
-### HUMAN-3 — Environment contract and acceptance cases (`src/config/env.js`, `tests/integration/health.test.js`)
+### AI-5 — Server lifecycle and health route (`src/server.js`, `src/routes/health.js`; formerly HUMAN-2)
 
-Checklist for the human:
-
-- [ ] Define Zod schema for `NODE_ENV`, `HOST`, `PORT`, `LOG_LEVEL`, `REQUEST_BODY_LIMIT` (this is the only module allowed to read `process.env`).
-- [ ] Test valid values; then malformed values (`PORT=abc`, `PORT=-1`, `PORT=70000`, `NODE_ENV=banana`, `LOG_LEVEL=madeup`, invalid body limit).
-- [ ] Export normalized validated configuration; decide failure behavior for invalid values.
-- [ ] Write exact `/api/health` status/body/content-type assertions.
-- [ ] Assert `/login.html`, `/dashboard.html`, `/race.html` load.
-- [ ] Assert `/.env`, `/composer.json`, `/package.json`, `/backend/…`, `/index.php`, `/router.php`, SQL paths, and internal docs are NOT served (404).
-- [ ] Build the symlink-escape canary fixture (link inside `public/` → secret outside) and assert it is not served; report platform constraints explicitly if symlink creation is impossible.
-- [ ] Assert representative Helmet headers on HTML and API responses; assert `x-powered-by` absent.
-- [ ] Run the integration suite.
+- [x] Add `GET /health` under `/api`, returning exactly `{ "status": "ok" }`.
+- [x] Validate configuration and compose the app before listening.
+- [x] Propagate listener startup errors and make direct-entry startup failures nonzero.
+- [x] Implement idempotent graceful `SIGINT`/`SIGTERM` shutdown, close-idle support, and listener cleanup.
+- [x] Prove imports open no listener and test startup/shutdown with injected real/fake servers.
 
 | Owner | Card | Task | Started | Finished | Actual time | Commit | Notes |
 |-------|------|------|---------|----------|-------------|--------|-------|
-| HUMAN | HUMAN-3 | Environment contract (`src/config/env.js`) | | | | | |
-| HUMAN | HUMAN-3 | Acceptance/exposure assertions (`tests/integration/health.test.js`) | | | | | |
+| AI | AI-5 | Health route and server lifecycle | 2026-11-21 | 2026-11-21 | n/a (AI) | agent/issue-11 change | Lifecycle unit tests pass; independent real-server/browser signal smoke test remains a verification-gate activity |
+
+### AI-6 — Environment contract and acceptance cases (`src/config/env.js`, integration tests; formerly HUMAN-3)
+
+- [x] Define Zod validation and defaults for all five Phase 1 variables in the only module that reads `process.env`.
+- [x] Test every valid class and malformed/empty/boundary values; assert safe field-naming errors and no source mutation.
+- [x] Write exact health, page, 404, Helmet, parser-error, and repository-exposure assertions.
+- [x] Add the outside-secret symlink canary and report the observed Windows EPERM limitation rather than claiming it passed.
+- [x] Document setup, environment, commands, response contracts, static boundary, and later-phase limitations in README.
+
+| Owner | Card | Task | Started | Finished | Actual time | Commit | Notes |
+|-------|------|------|---------|----------|-------------|--------|-------|
+| AI | AI-6 | Environment validation, acceptance coverage, and documentation | 2026-11-21 | 2026-11-21 | n/a (AI) | agent/issue-11 change | Focused unit/integration tests pass; final npm run check and git diff --check evidence recorded at handoff |
 
 ---
 

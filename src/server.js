@@ -1,52 +1,99 @@
-/**
- * HUMAN-2 — Server lifecycle.
- *
- * The human implements this file. AI must not fill in the implementation,
- * overwrite it, or duplicate its logic elsewhere.
- *
- * What the human must implement here:
- *
- * 1.  Import validated configuration from src/config/env.js (HUMAN-3).
- *     Configuration must be loaded and validated BEFORE listening.
- * 2.  Import/create the Express application via createApp() from
- *     src/app.js (HUMAN-1).
- * 3.  Start the listener on the configured host and port
- *     (https://nodejs.org/api/http.html#serverlisten).
- * 4.  Handle startup failure (e.g. port in use) with a clear message and
- *     a non-zero exit.
- * 5.  Handle SIGINT and SIGTERM:
- *     https://nodejs.org/api/process.html#signal-events
- * 6.  On shutdown: stop accepting new connections, close idle ones, let
- *     in-flight requests finish, then allow the process to exit.
- *     https://nodejs.org/api/http.html#serverclose
- * 7.  Guard against duplicate shutdown handling.
- *
- * Do NOT add database/pool closure here — Phase 1 has no database.
- *
- * Separation rule (be able to explain this at review):
- *   - src/app.js creates/configures the Express application.
- *   - src/server.js owns the network process lifecycle.
- *   This separation lets integration tests import the app without
- *   binding a real TCP port.
- */
+import { resolve } from "node:path";
+import { pathToFileURL } from "node:url";
+import { createApp } from "./app.js";
+import { loadEnv } from "./config/env.js";
+import defaultLogger, { createLogger } from "./lib/logger.js";
 
-/**
- * Start the FastASL server process.
- *
- * @returns {void}
- */
-export function main() {
-  // TODO(HUMAN): implement in HUMAN-2.
-  //
-  // Intended shape (guidance only, not the implementation):
-  //   const config = loadEnv();
-  //   const app = createApp();
-  //   const server = app.listen(config.PORT, config.HOST, onListening);
-  //   register graceful SIGINT/SIGTERM handling for `server`.
-  throw new Error("TODO(HUMAN): implement server lifecycle (HUMAN-2)");
+/** Start a listener and reject if startup fails before the listening event. */
+export async function startServer({
+  config = loadEnv(),
+  app = createApp(config),
+  logger = createLogger({ level: config.LOG_LEVEL }),
+} = {}) {
+  return new Promise((resolvePromise, rejectPromise) => {
+    const server = app.listen(config.PORT, config.HOST);
+
+    function onListening() {
+      server.removeListener("error", onError);
+      logger.info({ address: server.address() }, "Server listening");
+      resolvePromise(server);
+    }
+
+    function onError(error) {
+      server.removeListener("listening", onListening);
+      rejectPromise(error);
+    }
+
+    server.once("listening", onListening);
+    server.once("error", onError);
+  });
 }
 
-// TODO(HUMAN): call main() when this module is executed directly, so that
-// importing src/server.js never opens a listener by accident. See
-// https://nodejs.org/api/modules.html#the-module-scope __filename /
-// import.meta.url comparison patterns for ESM entrypoint detection.
+/** Register SIGINT/SIGTERM handlers and return an idempotent shutdown action. */
+export function registerShutdown(server, { signals = process, logger = console } = {}) {
+  let shutdownPromise;
+
+  function shutdown(signal) {
+    if (shutdownPromise) {
+      return shutdownPromise;
+    }
+
+    shutdownPromise = (async () => {
+      signals.removeListener("SIGINT", onSignal);
+      signals.removeListener("SIGTERM", onSignal);
+
+      try {
+        await new Promise((resolveClose, rejectClose) => {
+          server.close((error) => {
+            if (error) {
+              rejectClose(error);
+            } else {
+              resolveClose();
+            }
+          });
+          if (typeof server.closeIdleConnections === "function") {
+            server.closeIdleConnections();
+          }
+        });
+        logger.info({ signal }, "Server shutdown complete");
+      } catch (error) {
+        logger.error({ err: error, signal }, "Server shutdown failed");
+      }
+    })();
+
+    return shutdownPromise;
+  }
+
+  function onSignal(signal) {
+    void shutdown(signal);
+  }
+
+  signals.on("SIGINT", onSignal);
+  signals.on("SIGTERM", onSignal);
+  return shutdown;
+}
+
+/** Start the real server and arrange graceful process shutdown. */
+export async function main(options = {}) {
+  let logger = options.logger ?? defaultLogger;
+  try {
+    const config = options.config ?? loadEnv();
+    if (!options.logger) {
+      logger = createLogger({ level: config.LOG_LEVEL });
+    }
+    const app = options.app ?? createApp(config);
+    const server = await startServer({ config, app, logger });
+    registerShutdown(server, { logger });
+    return server;
+  } catch (error) {
+    logger.error({ err: error }, "Server startup failed");
+    process.exitCode = 1;
+    return null;
+  }
+}
+
+const isDirectEntry =
+  process.argv[1] && pathToFileURL(resolve(process.argv[1])).href === import.meta.url;
+if (isDirectEntry) {
+  await main();
+}

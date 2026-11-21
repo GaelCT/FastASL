@@ -63,8 +63,8 @@ export const LOG_REDACT_PATHS = (() => {
  * Create a Pino logger with FastASL redaction applied.
  *
  * @param {object} [options]
- * @param {string} [options.level] Pino log level. Callers should pass the
- *   validated LOG_LEVEL from src/config/env.js once HUMAN-3 lands.
+ * @param {string} [options.level] Pino log level. Application callers pass
+ *   the validated LOG_LEVEL from src/config/env.js.
  * @param {import("node:stream").Writable} [options.stream] Optional
  *   destination stream (used by tests to capture serialized output).
  * @returns {import("pino").Logger}
