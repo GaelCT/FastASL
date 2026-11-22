@@ -77,16 +77,19 @@ exactly `{ "error": "Request failed" }`. Other safe client errors retain their
 `{ "error": "Internal server error" }`. Responses do not include stack traces,
 parser details, request bodies, or filesystem paths.
 
-`public/` is the only static document root. The middleware checks both lexical
-and real paths, serves regular files only, disables directory indexes and
-redirects, denies dotfiles, and rejects symlinks whose targets escape `public/`.
-Repository files, environment files, backend/PHP paths, SQL, internal docs,
-traversal, and encoded-separator attempts therefore fall through to safe 404s.
+`public/` is the only static document root. The middleware checks lexical and
+resolved paths plus file identity before and after opening, then streams the
+response from that same file handle rather than resolving the path again. It
+serves regular files only, disables directory indexes and redirects, denies
+dotfiles, and rejects symlinks whose targets escape `public/`. Repository files,
+environment files, backend/PHP paths, SQL, internal docs, traversal, and
+encoded-separator attempts therefore fall through to safe 404s.
 
-The integration suite includes an outside-secret symlink canary. On this
-Windows development host, symlink creation was denied with `EPERM`; only that
-canary was explicitly skipped with its OS diagnostic and remains unverified on
-this host. Other static-boundary tests ran normally.
+The integration suite includes outside-secret symlink and deterministic
+after-open path-swap canaries. On this Windows development host, symlink
+creation was denied with `EPERM`; only those symlink canaries were explicitly
+skipped with their OS diagnostics and remain unverified on this host. Other
+static-boundary tests ran normally.
 
 ## Verification
 
