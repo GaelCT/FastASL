@@ -107,10 +107,11 @@ phase gate. This reassignment does not authorize Phase 2–4 behavior.
 - [x] Write exact health, page, 404, Helmet, parser-error, and repository-exposure assertions.
 - [x] Add outside-secret link and deterministic after-open swap canaries; use a Windows directory junction or POSIX file symlink so no canary is conditionally skipped.
 - [x] Document setup, environment, commands, response contracts, static boundary, and later-phase limitations in README.
+- [x] Run the supplied issue-to-pr kit regression suite against the read-only verifier profile with background task tools enabled.
 
 | Owner | Card | Task | Started | Finished | Actual time | Commit | Notes |
 |-------|------|------|---------|----------|-------------|--------|-------|
-| AI | AI-6 | Environment validation, acceptance coverage, and documentation | 2026-11-21 | 2026-11-21 | n/a (AI) | agent/issue-11 change | Focused unit/integration tests pass; final npm run check and git diff --check evidence recorded at handoff |
+| AI | AI-6 | Environment validation, acceptance coverage, and documentation | 2026-11-21 | 2026-11-22 | n/a (AI) | agent/issue-11 change | Node checks pass 51/51 with no skips; the supplied external kit suite passes 38/38; final npm run check and git diff --check evidence recorded at handoff |
 
 ---
 

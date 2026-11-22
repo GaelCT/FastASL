@@ -98,9 +98,12 @@ npm run test:unit
 npm run test:integration
 npm run check
 git diff --check
+python3 -m unittest discover -s ../issue-to-pr-kit-kimi/tests
 ```
 
-`npm run check` runs ESLint and the complete Node test suite. Server lifecycle
+`npm run check` runs ESLint and the complete Node test suite. The final command
+runs the supplied issue-to-pr kit regression suite from its sibling checkout.
+Server lifecycle
 unit tests use injected listeners/fakes, so importing `src/server.js` never
 opens a port. Real browser and signal smoke verification is performed against
 the running app independently before the Phase 1 gate.
