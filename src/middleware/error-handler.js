@@ -23,7 +23,7 @@ export function errorHandler(error, req, res, _next) {
       ? (error.status ?? error.statusCode)
       : undefined;
   const status =
-    Number.isInteger(rawStatus) && rawStatus >= 400 && rawStatus <= 599
+    Number.isInteger(rawStatus) && rawStatus >= 400 && rawStatus <= 499
       ? rawStatus
       : 500;
 

@@ -159,6 +159,25 @@ test("other safe client errors retain their status and generic payload", async (
   assertSafeError(response, 422, "Request failed");
 });
 
+test("unexpected errors carrying 5xx statuses normalize to the generic 500 contract", async () => {
+  for (const [property, carriedStatus] of [
+    ["status", 503],
+    ["statusCode", 503],
+    ["status", 599],
+  ]) {
+    const app = express();
+    app.get("/unexpected", () => {
+      const error = new Error("SENSITIVE_REQUEST_BODY upstream failure");
+      error[property] = carriedStatus;
+      throw error;
+    });
+    app.use(errorHandler);
+
+    const response = await request(app).get("/unexpected");
+    assertSafeError(response, 500, "Internal server error");
+  }
+});
+
 test("unexpected failures retain the generic 500 contract", async () => {
   const app = express();
   app.get("/unexpected", () => {

@@ -86,10 +86,11 @@ environment files, backend/PHP paths, SQL, internal docs, traversal, and
 encoded-separator attempts therefore fall through to safe 404s.
 
 The integration suite includes outside-secret symlink and deterministic
-after-open path-swap canaries. On this Windows development host, symlink
-creation was denied with `EPERM`; only those symlink canaries were explicitly
-skipped with their OS diagnostics and remain unverified on this host. Other
-static-boundary tests ran normally.
+after-open path-swap canaries. On this Windows development host, creation of
+the outside-secret symlink was denied with `EPERM`; only that canary was
+explicitly skipped with its OS diagnostic and remains unverified on this host.
+The path-swap regression uses a directory rename and ran normally, as did the
+other static-boundary tests.
 
 ## Verification
 

@@ -39,9 +39,6 @@ export function registerShutdown(server, { signals = process, logger = console }
     }
 
     shutdownPromise = (async () => {
-      signals.removeListener("SIGINT", onSignal);
-      signals.removeListener("SIGTERM", onSignal);
-
       try {
         await new Promise((resolveClose, rejectClose) => {
           server.close((error) => {
@@ -58,6 +55,9 @@ export function registerShutdown(server, { signals = process, logger = console }
         logger.info({ signal }, "Server shutdown complete");
       } catch (error) {
         logger.error({ err: error, signal }, "Server shutdown failed");
+      } finally {
+        signals.removeListener("SIGINT", onSignal);
+        signals.removeListener("SIGTERM", onSignal);
       }
     })();
 

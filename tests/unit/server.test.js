@@ -90,26 +90,41 @@ class FakeServer extends EventEmitter {
 }
 
 for (const signal of ["SIGINT", "SIGTERM"]) {
-  test(`${signal} gracefully closes once, cleans up listeners, and ignores duplicates`, async () => {
-    const signals = new EventEmitter();
+  test(`${signal} gracefully closes once, retains listeners for duplicates, and cleans up afterward`, async (t) => {
+    const signals = process;
+    const initialSigintListeners = signals.listenerCount("SIGINT");
+    const initialSigtermListeners = signals.listenerCount("SIGTERM");
     const server = new FakeServer();
     const messages = [];
     const logger = { info: (...args) => messages.push(args), error: (...args) => messages.push(args) };
     const shutdown = registerShutdown(server, { signals, logger });
+    let closeFinished = false;
+
+    t.after(async () => {
+      const pending = shutdown(signal);
+      if (!closeFinished && server.closeCallback) {
+        closeFinished = true;
+        server.finishClose();
+      }
+      await pending;
+    });
 
     signals.emit(signal);
     signals.emit(signal);
     const duplicate = shutdown(signal);
     assert.equal(server.closeCount, 1);
     assert.equal(server.idleCloseCount, 1);
-    assert.equal(signals.listenerCount("SIGINT"), 0);
-    assert.equal(signals.listenerCount("SIGTERM"), 0);
+    assert.equal(signals.listenerCount("SIGINT"), initialSigintListeners + 1);
+    assert.equal(signals.listenerCount("SIGTERM"), initialSigtermListeners + 1);
 
     server.finishClose();
+    closeFinished = true;
     await duplicate;
     await shutdown(signal);
     assert.equal(server.closeCount, 1);
     assert.equal(messages.length, 1);
+    assert.equal(signals.listenerCount("SIGINT"), initialSigintListeners);
+    assert.equal(signals.listenerCount("SIGTERM"), initialSigtermListeners);
   });
 }
 
@@ -128,9 +143,13 @@ test("shutdown waits for in-flight close and reports close failures", async () =
   });
   await Promise.resolve();
   assert.equal(settled, false);
+  assert.equal(signals.listenerCount("SIGINT"), 1);
+  assert.equal(signals.listenerCount("SIGTERM"), 1);
   server.finishClose(new Error("close failed"));
   await pending;
   assert.equal(errors.length, 1);
+  assert.equal(signals.listenerCount("SIGINT"), 0);
+  assert.equal(signals.listenerCount("SIGTERM"), 0);
 });
 
 test("importing server.js never opens a listener", () => {

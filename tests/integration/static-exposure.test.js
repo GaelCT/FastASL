@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtemp, readFile, rm, symlink, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, rename, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -89,10 +89,10 @@ test("a public symlink cannot expose a file outside public", async (t) => {
   }
 });
 
-test("a path swapped after validation serves only the already-opened public file", async (t) => {
-  const outsideDirectory = await mkdtemp(join(tmpdir(), "fastasl-swap-secret-"));
-  const linkName = `phase-1-swap-${process.pid}-${Date.now()}.txt`;
-  const linkPath = join(PUBLIC_ROOT, linkName);
+test("a path swapped after validation serves only the already-opened public file", async () => {
+  const outsideDirectory = await mkdtemp(join(dirname(PUBLIC_ROOT), ".fastasl-swap-secret-"));
+  const fileName = `phase-1-swap-${process.pid}-${Date.now()}.txt`;
+  const filePath = join(PUBLIC_ROOT, fileName);
   const secret = "PHASE_1_SWAPPED_OUTSIDE_SECRET_SENTINEL";
   const publicContent = "PHASE_1_ORIGINAL_PUBLIC_CONTENT";
   const secretPath = join(outsideDirectory, "secret.txt");
@@ -100,42 +100,32 @@ test("a path swapped after validation serves only the already-opened public file
 
   try {
     await writeFile(secretPath, secret, "utf8");
-    try {
-      await symlink(secretPath, linkPath, "file");
-      await rm(linkPath);
-    } catch (error) {
-      if (process.platform === "win32" && ["EPERM", "EACCES"].includes(error.code)) {
-        t.skip(`Symlink swap canary unverified: ${error.code}: ${error.message}`);
-        return;
-      }
-      throw error;
-    }
-    await writeFile(linkPath, publicContent, "utf8");
+    await writeFile(filePath, publicContent, "utf8");
 
     const app = express();
     app.use(
       createPublicStaticMiddleware(PUBLIC_ROOT, {
         afterFileOpen: async () => {
           swapObserved = true;
-          await rm(linkPath);
-          await symlink(secretPath, linkPath, "file");
+          await rm(filePath);
+          await rename(outsideDirectory, filePath);
         },
       }),
     );
     app.use(notFoundHandler);
     app.use(errorHandler);
 
-    const response = await request(app).get(`/${linkName}`);
+    const response = await request(app).get(`/${fileName}`);
     assert.equal(swapObserved, true);
     assert.equal(response.status, 200);
     assert.equal(response.text, publicContent);
     assert.ok(!response.text.includes(secret));
 
-    const swappedResponse = await request(app).get(`/${linkName}`);
+    const swappedResponse = await request(app).get(`/${fileName}`);
     assert.equal(swappedResponse.status, 404);
     assert.ok(!swappedResponse.text.includes(secret));
   } finally {
-    await rm(linkPath, { force: true });
+    await rm(filePath, { recursive: true, force: true });
     await rm(outsideDirectory, { recursive: true, force: true });
   }
 });

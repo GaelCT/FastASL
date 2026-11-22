@@ -51,6 +51,19 @@ test("unknown routes and unsupported health methods use the exact JSON 404", asy
   }
 });
 
+test("HEAD and OPTIONS health requests use explicit safe 404 responses", async () => {
+  const head = await request(app()).head("/api/health");
+  assert.equal(head.status, 404);
+  assert.match(head.headers["content-type"], /^application\/json(?:;|$)/);
+  assert.equal(head.text, undefined);
+
+  const options = await request(app()).options("/api/health");
+  assert.equal(options.status, 404);
+  assert.match(options.headers["content-type"], /^application\/json(?:;|$)/);
+  assert.equal(options.text, '{"error":"Not found"}');
+  assert.deepEqual(options.body, { error: "Not found" });
+});
+
 test("representative Helmet headers are present on health and HTML", async () => {
   for (const path of ["/api/health", "/login.html"]) {
     const response = await request(app()).get(path);
