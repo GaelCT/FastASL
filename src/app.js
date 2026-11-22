@@ -11,14 +11,35 @@ import { createPublicStaticMiddleware } from "./middleware/public-static.js";
 
 const PUBLIC_ROOT = fileURLToPath(new URL("../public/", import.meta.url));
 
+/** Keep standard request metadata while excluding query keys and values. */
+function serializeRequest(req) {
+  const serialized = pinoHttp.stdSerializers.req(req);
+  return {
+    id: serialized.id,
+    method: serialized.method,
+    url:
+      typeof serialized.url === "string"
+        ? serialized.url.split("?", 1)[0]
+        : serialized.url,
+    headers: serialized.headers,
+    remoteAddress: serialized.remoteAddress,
+    remotePort: serialized.remotePort,
+  };
+}
+
 /** Compose the Express application without opening a network listener. */
-export function createApp(config = loadEnv()) {
+export function createApp(config = loadEnv(), options = {}) {
   const app = express();
-  const logger = createLogger({ level: config.LOG_LEVEL });
+  const logger = options.logger ?? createLogger({ level: config.LOG_LEVEL });
 
   app.disable("x-powered-by");
   app.use(helmet());
-  app.use(pinoHttp({ logger }));
+  app.use(
+    pinoHttp({
+      logger,
+      serializers: { req: serializeRequest },
+    }),
+  );
   app.use(express.json({ limit: config.REQUEST_BODY_LIMIT }));
   app.use(createPublicStaticMiddleware(PUBLIC_ROOT));
   app.use("/api", createHealthRouter());
