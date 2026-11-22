@@ -22,7 +22,12 @@ const SENSITIVE_FIELDS = [
 /**
  * Header names whose values must never appear in serialized logs.
  */
-const SENSITIVE_HEADERS = ["authorization", "cookie", "set-cookie"];
+const SENSITIVE_HEADERS = [
+  "authorization",
+  "proxy-authorization",
+  "cookie",
+  "set-cookie",
+];
 
 /** How deep wildcard redaction paths reach (e.g. `*.*.*.password`). */
 const MAX_WILDCARD_DEPTH = 4;

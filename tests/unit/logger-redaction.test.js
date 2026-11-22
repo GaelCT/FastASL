@@ -8,6 +8,7 @@ const SENTINELS = {
   passwordHash: "SECRET_PASSWORD_HASH_SENTINEL",
   cookie: "SECRET_COOKIE_SENTINEL",
   authorization: "SECRET_AUTHORIZATION_SENTINEL",
+  proxyAuthorization: "SECRET_PROXY_AUTHORIZATION_SENTINEL",
   setCookie: "SECRET_SET_COOKIE_SENTINEL",
   sessionId: "SECRET_SESSION_SENTINEL",
   secret: "SECRET_SECRET_SENTINEL",
@@ -67,6 +68,7 @@ test("sensitive values are absent from serialized log output", async () => {
       req: {
         headers: {
           authorization: SENTINELS.authorization,
+          "proxy-authorization": SENTINELS.proxyAuthorization,
           cookie: SENTINELS.cookie,
         },
       },

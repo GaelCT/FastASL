@@ -93,6 +93,39 @@ test("malformed JSON bodies and parser details stay out of serialized logs", asy
   assert.equal(errorEntry.err, undefined);
 });
 
+test("credential header values stay out of serialized request logs", async () => {
+  const authorizationSentinel = "STANDARD_AUTH_CREDENTIAL_SENTINEL";
+  const proxyAuthorizationSentinel = "PROXY_AUTH_CREDENTIAL_SENTINEL";
+  const sink = createLogSink();
+  const logger = createLogger({ level: "info", stream: sink.stream });
+  const app = createApp(config, { logger });
+
+  const response = await request(app)
+    .get("/api/health")
+    .set("Authorization", `Basic ${authorizationSentinel}`)
+    .set("Proxy-Authorization", `Basic ${proxyAuthorizationSentinel}`);
+
+  assert.equal(response.status, 200);
+  await waitForRequestLog(sink);
+
+  const serialized = sink.text();
+  assert.ok(
+    !serialized.includes(authorizationSentinel),
+    "authorization credential must not be logged",
+  );
+  assert.ok(
+    !serialized.includes(proxyAuthorizationSentinel),
+    "proxy-authorization credential must not be logged",
+  );
+
+  const requestEntry = serializedEntries(sink).find(
+    (entry) => entry.msg === "request completed",
+  );
+  assert.ok(requestEntry, "expected a serialized request log entry");
+  assert.equal(requestEntry.req.headers.authorization, "[REDACTED]");
+  assert.equal(requestEntry.req.headers["proxy-authorization"], "[REDACTED]");
+});
+
 test("request query strings stay out of serialized logs", async () => {
   const sentinel = "QUERY_STRING_LOG_SENTINEL";
   const sink = createLogSink();
