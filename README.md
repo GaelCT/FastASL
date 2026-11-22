@@ -85,12 +85,11 @@ dotfiles, and rejects symlinks whose targets escape `public/`. Repository files,
 environment files, backend/PHP paths, SQL, internal docs, traversal, and
 encoded-separator attempts therefore fall through to safe 404s.
 
-The integration suite includes outside-secret symlink and deterministic
-after-open path-swap canaries. On this Windows development host, creation of
-the outside-secret symlink was denied with `EPERM`; only that canary was
-explicitly skipped with its OS diagnostic and remains unverified on this host.
-The path-swap regression uses a directory rename and ran normally, as did the
-other static-boundary tests.
+The integration suite includes outside-secret link and deterministic
+after-open path-swap canaries. The outside-secret canary uses a file symlink on
+POSIX hosts and a directory junction on Windows, requesting the secret through
+either link without a conditional skip. The path-swap regression uses a
+directory rename and runs without symlink privileges.
 
 ## Verification
 

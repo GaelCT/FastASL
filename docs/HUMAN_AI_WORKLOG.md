@@ -86,7 +86,7 @@ phase gate. This reassignment does not authorize Phase 2–4 behavior.
 
 | Owner | Card | Task | Started | Finished | Actual time | Commit | Notes |
 |-------|------|------|---------|----------|-------------|--------|-------|
-| AI | AI-4 | Secure app/static composition and integration cases | 2026-11-21 | 2026-11-21 | n/a (AI) | agent/issue-11 change | Focused integration tests pass; Windows symlink creation denied with EPERM, so only that canary is explicitly skipped/unverified |
+| AI | AI-4 | Secure app/static composition and integration cases | 2026-11-21 | 2026-11-21 | n/a (AI) | agent/issue-11 change | Focused integration tests pass; the outside-secret canary uses a Windows directory junction or POSIX file symlink with no conditional skip |
 
 ### AI-5 — Server lifecycle and health route (`src/server.js`, `src/routes/health.js`; formerly HUMAN-2)
 
@@ -105,7 +105,7 @@ phase gate. This reassignment does not authorize Phase 2–4 behavior.
 - [x] Define Zod validation and defaults for all five Phase 1 variables in the only module that reads `process.env`.
 - [x] Test every valid class and malformed/empty/boundary values; assert safe field-naming errors and no source mutation.
 - [x] Write exact health, page, 404, Helmet, parser-error, and repository-exposure assertions.
-- [x] Add outside-secret symlink and deterministic after-open swap canaries; report the observed Windows EPERM limitation rather than claiming they passed.
+- [x] Add outside-secret link and deterministic after-open swap canaries; use a Windows directory junction or POSIX file symlink so no canary is conditionally skipped.
 - [x] Document setup, environment, commands, response contracts, static boundary, and later-phase limitations in README.
 
 | Owner | Card | Task | Started | Finished | Actual time | Commit | Notes |

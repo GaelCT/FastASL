@@ -57,28 +57,26 @@ test("repository files, traversal, and encoded separators cannot be downloaded",
   }
 });
 
-test("a public symlink cannot expose a file outside public", async (t) => {
+test("a public symlink or junction cannot expose a file outside public", async () => {
   const outsideDirectory = await mkdtemp(join(tmpdir(), "fastasl-outside-secret-"));
   const linkName = `phase-1-canary-${process.pid}-${Date.now()}.txt`;
   const linkPath = join(PUBLIC_ROOT, linkName);
   const secret = "PHASE_1_OUTSIDE_SECRET_SENTINEL";
   const secretPath = join(outsideDirectory, "secret.txt");
+  const useWindowsJunction = process.platform === "win32";
   let linkCreated = false;
 
   try {
     await writeFile(secretPath, secret, "utf8");
-    try {
-      await symlink(secretPath, linkPath, "file");
-      linkCreated = true;
-    } catch (error) {
-      if (process.platform === "win32" && ["EPERM", "EACCES"].includes(error.code)) {
-        t.skip(`Symlink canary unverified: ${error.code}: ${error.message}`);
-        return;
-      }
-      throw error;
-    }
+    await symlink(
+      useWindowsJunction ? outsideDirectory : secretPath,
+      linkPath,
+      useWindowsJunction ? "junction" : "file",
+    );
+    linkCreated = true;
 
-    const response = await request(createApp(config)).get(`/${linkName}`);
+    const canaryPath = useWindowsJunction ? `/${linkName}/secret.txt` : `/${linkName}`;
+    const response = await request(createApp(config)).get(canaryPath);
     assert.equal(response.status, 404);
     assert.ok(!response.text.includes(secret));
   } finally {
