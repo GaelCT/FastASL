@@ -1,6 +1,6 @@
 import { constants, realpathSync } from "node:fs";
 import { open, realpath, stat } from "node:fs/promises";
-import { resolve, sep } from "node:path";
+import { extname, resolve, sep } from "node:path";
 import { pipeline } from "node:stream/promises";
 
 function isInsideRoot(root, candidate) {
@@ -220,7 +220,7 @@ export function createPublicStaticMiddleware(publicRoot, options = {}) {
       }
 
       res.status(range ? 206 : 200);
-      res.type(realCandidate);
+      res.type(extname(realCandidate));
       if (range) {
         res.set("Content-Range", `bytes ${range.start}-${range.end}/${size}`);
       }
