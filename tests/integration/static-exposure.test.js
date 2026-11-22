@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtemp, rm, symlink, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -12,6 +12,7 @@ import { notFoundHandler } from "../../src/middleware/not-found.js";
 import { createPublicStaticMiddleware } from "../../src/middleware/public-static.js";
 
 const PUBLIC_ROOT = fileURLToPath(new URL("../../public/", import.meta.url));
+const LOGIN_PAGE = await readFile(join(PUBLIC_ROOT, "login.html"));
 const config = {
   NODE_ENV: "test",
   HOST: "127.0.0.1",
@@ -136,6 +137,86 @@ test("a path swapped after validation serves only the already-opened public file
   } finally {
     await rm(linkPath, { force: true });
     await rm(outsideDirectory, { recursive: true, force: true });
+  }
+});
+
+test("static GET and HEAD preserve file metadata and HEAD body semantics", async () => {
+  const app = createApp(config);
+  const response = await request(app).get("/login.html");
+
+  assert.equal(response.status, 200);
+  assert.match(response.headers["content-type"], /^text\/html(?:;|$)/);
+  assert.equal(response.headers["content-length"], String(LOGIN_PAGE.length));
+  assert.equal(response.headers["accept-ranges"], "bytes");
+  assert.ok(response.headers.etag);
+  assert.ok(Number.isFinite(Date.parse(response.headers["last-modified"])));
+  assert.equal(response.text, LOGIN_PAGE.toString("utf8"));
+
+  const head = await request(app).head("/login.html");
+  assert.equal(head.status, 200);
+  assert.equal(head.headers["content-type"], response.headers["content-type"]);
+  assert.equal(head.headers["content-length"], response.headers["content-length"]);
+  assert.equal(head.headers.etag, response.headers.etag);
+  assert.equal(head.headers["last-modified"], response.headers["last-modified"]);
+  assert.equal(head.headers["accept-ranges"], "bytes");
+  assert.equal(head.text, undefined);
+});
+
+test("static conditional requests return 304 without a body", async () => {
+  const app = createApp(config);
+  const original = await request(app).get("/login.html");
+
+  for (const headers of [
+    { "If-None-Match": original.headers.etag },
+    { "If-Modified-Since": original.headers["last-modified"] },
+  ]) {
+    const response = await request(app).get("/login.html").set(headers);
+    assert.equal(response.status, 304);
+    assert.equal(response.text, "");
+    assert.equal(response.headers["content-length"], undefined);
+  }
+
+  const head = await request(app)
+    .head("/login.html")
+    .set("If-None-Match", original.headers.etag);
+  assert.equal(head.status, 304);
+  assert.equal(head.text, undefined);
+  assert.equal(head.headers["content-length"], undefined);
+});
+
+test("static single byte ranges return exact bytes and range metadata", async () => {
+  const app = createApp(config);
+  const size = LOGIN_PAGE.length;
+  const cases = [
+    { range: "bytes=0-9", start: 0, end: 9 },
+    { range: "bytes=10-", start: 10, end: size - 1 },
+    { range: "bytes=-7", start: size - 7, end: size - 1 },
+  ];
+
+  for (const { range, start, end } of cases) {
+    const response = await request(app).get("/login.html").set("Range", range);
+    assert.equal(response.status, 206, range);
+    assert.equal(response.text, LOGIN_PAGE.subarray(start, end + 1).toString("utf8"), range);
+    assert.equal(response.headers["content-range"], `bytes ${start}-${end}/${size}`, range);
+    assert.equal(response.headers["content-length"], String(end - start + 1), range);
+    assert.equal(response.headers["accept-ranges"], "bytes", range);
+  }
+
+  const head = await request(app).head("/login.html").set("Range", "bytes=0-9");
+  assert.equal(head.status, 206);
+  assert.equal(head.headers["content-range"], `bytes 0-9/${size}`);
+  assert.equal(head.headers["content-length"], "10");
+  assert.equal(head.text, undefined);
+});
+
+test("malformed and unsatisfiable static ranges return a safe 416", async () => {
+  const app = createApp(config);
+  for (const range of ["bytes=invalid", "bytes=5-2", `bytes=${LOGIN_PAGE.length}-`]) {
+    const response = await request(app).get("/login.html").set("Range", range);
+    assert.equal(response.status, 416, range);
+    assert.deepEqual(response.body, { error: "Request failed" }, range);
+    assert.equal(response.headers["content-range"], `bytes */${LOGIN_PAGE.length}`, range);
+    assert.ok(!response.text.includes(PUBLIC_ROOT), range);
   }
 });
 

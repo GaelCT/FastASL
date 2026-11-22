@@ -17,6 +17,92 @@ function malformedPathError() {
   return error;
 }
 
+function createEtag(stats) {
+  return `W/"${stats.size.toString(16)}-${stats.mtimeMs.toString(16)}"`;
+}
+
+function stripWeakPrefix(value) {
+  return value.startsWith("W/") ? value.slice(2) : value;
+}
+
+function isNotModified(req, etag, mtimeMs) {
+  const ifNoneMatch = req.headers["if-none-match"];
+  if (ifNoneMatch !== undefined) {
+    return ifNoneMatch.split(",").some((candidate) => {
+      const value = candidate.trim();
+      return value === "*" || stripWeakPrefix(value) === stripWeakPrefix(etag);
+    });
+  }
+
+  const ifModifiedSince = req.headers["if-modified-since"];
+  if (ifModifiedSince === undefined) {
+    return false;
+  }
+  const modifiedSince = Date.parse(ifModifiedSince);
+  return (
+    Number.isFinite(modifiedSince) &&
+    Math.floor(Number(mtimeMs) / 1000) <= Math.floor(modifiedSince / 1000)
+  );
+}
+
+function isRangeFresh(req, etag, mtimeMs) {
+  const ifRange = req.headers["if-range"];
+  if (ifRange === undefined) {
+    return true;
+  }
+  if (ifRange.includes('"')) {
+    return ifRange.trim() === etag;
+  }
+
+  const ifRangeDate = Date.parse(ifRange);
+  return (
+    Number.isFinite(ifRangeDate) &&
+    Math.floor(Number(mtimeMs) / 1000) <= Math.floor(ifRangeDate / 1000)
+  );
+}
+
+/** Parse exactly one byte range, rejecting malformed and unsatisfiable input. */
+function parseByteRange(header, size) {
+  if (header === undefined) {
+    return null;
+  }
+
+  const match = /^\s*bytes\s*=\s*(\d*)\s*-\s*(\d*)\s*$/i.exec(header);
+  if (!match || (!match[1] && !match[2]) || size === 0) {
+    return { invalid: true };
+  }
+
+  let start;
+  let end;
+  if (!match[1]) {
+    const suffixLength = Number(match[2]);
+    if (!Number.isSafeInteger(suffixLength) || suffixLength === 0) {
+      return { invalid: true };
+    }
+    start = Math.max(size - suffixLength, 0);
+    end = size - 1;
+  } else {
+    start = Number(match[1]);
+    end = match[2] ? Number(match[2]) : size - 1;
+    if (!Number.isSafeInteger(start) || !Number.isSafeInteger(end)) {
+      return { invalid: true };
+    }
+    end = Math.min(end, size - 1);
+  }
+
+  if (start >= size || start > end) {
+    return { invalid: true };
+  }
+  return { start, end };
+}
+
+function invalidRangeError() {
+  const error = new Error("Invalid byte range");
+  error.status = 416;
+  error.type = "range.invalid";
+  return error;
+}
+
 /**
  * Open a regular file whose resolved path and identity stay inside root.
  * The returned handle, rather than a later path lookup, backs the response.
@@ -106,12 +192,39 @@ export function createPublicStaticMiddleware(publicRoot, options = {}) {
       await options.afterFileOpen?.();
 
       const { handle, realCandidate, stats } = openedFile;
-      res.status(200);
-      res.type(realCandidate);
+      const size = Number(stats.size);
+      if (!Number.isSafeInteger(size)) {
+        throw new Error("Static file is too large to serve safely");
+      }
+
+      const etag = createEtag(stats);
       res.set({
+        "Accept-Ranges": "bytes",
         "Cache-Control": "public, max-age=0",
-        "Content-Length": stats.size.toString(),
+        ETag: etag,
+        "Last-Modified": stats.mtime.toUTCString(),
       });
+
+      if (isNotModified(req, etag, stats.mtimeMs)) {
+        res.status(304);
+        res.end();
+        return;
+      }
+
+      const range = isRangeFresh(req, etag, stats.mtimeMs)
+        ? parseByteRange(req.headers.range, size)
+        : null;
+      if (range?.invalid) {
+        res.set("Content-Range", `bytes */${size}`);
+        throw invalidRangeError();
+      }
+
+      res.status(range ? 206 : 200);
+      res.type(realCandidate);
+      if (range) {
+        res.set("Content-Range", `bytes ${range.start}-${range.end}/${size}`);
+      }
+      res.set("Content-Length", String(range ? range.end - range.start + 1 : size));
 
       if (req.method === "HEAD") {
         res.end();
@@ -119,7 +232,10 @@ export function createPublicStaticMiddleware(publicRoot, options = {}) {
       }
 
       try {
-        await pipeline(handle.createReadStream({ autoClose: false }), res);
+        const streamOptions = range
+          ? { autoClose: false, start: range.start, end: range.end }
+          : { autoClose: false };
+        await pipeline(handle.createReadStream(streamOptions), res);
       } catch (error) {
         if (res.headersSent) {
           res.destroy(error);
