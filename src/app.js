@@ -10,8 +10,16 @@ import { notFoundHandler } from "./middleware/not-found.js";
 import { createPublicStaticMiddleware } from "./middleware/public-static.js";
 
 const PUBLIC_ROOT = fileURLToPath(new URL("../public/", import.meta.url));
+const SAFE_REQUEST_HEADERS = new Set([
+  "accept",
+  "accept-encoding",
+  "content-length",
+  "content-type",
+  "host",
+  "user-agent",
+]);
 
-/** Keep standard request metadata while excluding query keys and values. */
+/** Keep reviewed request metadata without queries or unlisted header values. */
 function serializeRequest(req) {
   const serialized = pinoHttp.stdSerializers.req(req);
   return {
@@ -21,7 +29,11 @@ function serializeRequest(req) {
       typeof serialized.url === "string"
         ? serialized.url.split("?", 1)[0]
         : serialized.url,
-    headers: serialized.headers,
+    headers: Object.fromEntries(
+      Object.entries(serialized.headers ?? {}).filter(([name]) =>
+        SAFE_REQUEST_HEADERS.has(name),
+      ),
+    ),
     remoteAddress: serialized.remoteAddress,
     remotePort: serialized.remotePort,
   };

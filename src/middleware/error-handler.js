@@ -3,9 +3,9 @@ import logger from "../lib/logger.js";
 /**
  * Final Express error middleware.
  *
- * Logs unexpected errors server-side (with redaction applied by the shared
- * logger), restricts expected client-error logs to safe status/type metadata,
- * and returns a stable, non-sensitive JSON failure response.
+ * Logs only reviewed status/type metadata for request failures and returns a
+ * stable, non-sensitive JSON failure response. Error messages and stacks are
+ * never serialized because they can contain request data or filesystem paths.
  * Client responses must never contain stack traces, filesystem paths,
  * database details, or other internals.
  *
@@ -37,7 +37,7 @@ export function errorHandler(error, req, res, _next) {
     }
     requestLogger.error(metadata, "Request client error");
   } else {
-    requestLogger.error({ err: error }, "Unhandled request error");
+    requestLogger.error({ status }, "Unhandled request error");
   }
 
   res.status(status).json({

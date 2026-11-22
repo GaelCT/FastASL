@@ -40,11 +40,11 @@ function createLogSink() {
   };
 }
 
-async function waitForRequestLog(sink) {
+async function waitForLog(sink, marker) {
   const startedAt = Date.now();
-  while (!sink.text().includes("request completed")) {
+  while (!sink.text().includes(marker)) {
     if (Date.now() - startedAt > 2000) {
-      throw new Error("serialized request log output never flushed");
+      throw new Error(`serialized log output never flushed: ${marker}`);
     }
     await new Promise((resolve) => setTimeout(resolve, 10));
   }
@@ -79,7 +79,7 @@ test("malformed JSON bodies and parser details stay out of serialized logs", asy
     .send(`{"token":"${sentinel}"`);
 
   assert.equal(response.status, 400);
-  await waitForRequestLog(sink);
+  await waitForLog(sink, "request completed");
 
   const serialized = sink.text();
   assert.ok(!serialized.includes(sentinel), "malformed body sentinel must not be logged");
@@ -106,7 +106,7 @@ test("credential header values stay out of serialized request logs", async () =>
     .set("Proxy-Authorization", `Basic ${proxyAuthorizationSentinel}`);
 
   assert.equal(response.status, 200);
-  await waitForRequestLog(sink);
+  await waitForLog(sink, "request completed");
 
   const serialized = sink.text();
   assert.ok(
@@ -122,8 +122,41 @@ test("credential header values stay out of serialized request logs", async () =>
     (entry) => entry.msg === "request completed",
   );
   assert.ok(requestEntry, "expected a serialized request log entry");
-  assert.equal(requestEntry.req.headers.authorization, "[REDACTED]");
-  assert.equal(requestEntry.req.headers["proxy-authorization"], "[REDACTED]");
+  assert.equal(requestEntry.req.headers.authorization, undefined);
+  assert.equal(requestEntry.req.headers["proxy-authorization"], undefined);
+});
+
+test("unlisted credential headers and Referer query strings stay out of serialized logs", async () => {
+  const credentialSentinel = "UNLISTED_API_KEY_LOG_SENTINEL";
+  const refererSentinel = "REFERER_QUERY_LOG_SENTINEL";
+  const sink = createLogSink();
+  const logger = createLogger({ level: "info", stream: sink.stream });
+  const app = createApp(config, { logger });
+
+  const response = await request(app)
+    .get("/api/health")
+    .set("X-Api-Key", credentialSentinel)
+    .set("Referer", `https://example.test/source?token=${refererSentinel}`);
+
+  assert.equal(response.status, 200);
+  await waitForLog(sink, "request completed");
+
+  const serialized = sink.text();
+  assert.ok(
+    !serialized.includes(credentialSentinel),
+    "unlisted credential header value must not be logged",
+  );
+  assert.ok(
+    !serialized.includes(refererSentinel),
+    "Referer query-string value must not be logged",
+  );
+
+  const requestEntry = serializedEntries(sink).find(
+    (entry) => entry.msg === "request completed",
+  );
+  assert.ok(requestEntry, "expected a serialized request log entry");
+  assert.equal(requestEntry.req.headers["x-api-key"], undefined);
+  assert.equal(requestEntry.req.headers.referer, undefined);
 });
 
 test("request query strings stay out of serialized logs", async () => {
@@ -135,7 +168,7 @@ test("request query strings stay out of serialized logs", async () => {
   const response = await request(app).get(`/api/health?token=${sentinel}`);
 
   assert.equal(response.status, 200);
-  await waitForRequestLog(sink);
+  await waitForLog(sink, "request completed");
 
   const serialized = sink.text();
   assert.ok(!serialized.includes(sentinel), "query-string sentinel must not be logged");
@@ -211,8 +244,14 @@ test("unexpected errors carrying 5xx statuses normalize to the generic 500 contr
   }
 });
 
-test("unexpected failures retain the generic 500 contract", async () => {
+test("unexpected failures keep sensitive messages and stacks out of serialized logs", async () => {
+  const sink = createLogSink();
+  const logger = createLogger({ level: "info", stream: sink.stream });
   const app = express();
+  app.use((req, _res, next) => {
+    req.log = logger;
+    next();
+  });
   app.get("/unexpected", () => {
     throw new Error("SENSITIVE_REQUEST_BODY C:\\private\\stack");
   });
@@ -220,4 +259,17 @@ test("unexpected failures retain the generic 500 contract", async () => {
 
   const response = await request(app).get("/unexpected");
   assertSafeError(response, 500, "Internal server error");
+  await waitForLog(sink, "Unhandled request error");
+
+  const serialized = sink.text();
+  assert.ok(
+    !serialized.includes("SENSITIVE_REQUEST_BODY"),
+    "unexpected error message and stack sentinel must not be logged",
+  );
+  const errorEntry = serializedEntries(sink).find(
+    (entry) => entry.msg === "Unhandled request error",
+  );
+  assert.ok(errorEntry, "expected a safe unexpected-error log entry");
+  assert.equal(errorEntry.status, 500);
+  assert.equal(errorEntry.err, undefined);
 });

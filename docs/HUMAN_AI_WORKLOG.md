@@ -80,6 +80,7 @@ phase gate. This reassignment does not authorize Phase 2–4 behavior.
 - [x] Disable `x-powered-by`.
 - [x] Add bounded JSON body parsing.
 - [x] Mount Helmet and redacting pino-http request logging.
+- [x] Allowlist non-sensitive request headers and omit unexpected error messages/stacks from serialized logs.
 - [x] Serve static regular files from exactly `public/`, with lexical, resolved-path, and pre/post-open identity checks; stream from the validated file handle to prevent symlink-swap escapes.
 - [x] Mount `/api` routes, then 404 and final error middleware in order.
 - [x] Add health, page, header, exposure, traversal, and request-error integration tests.
@@ -111,7 +112,7 @@ phase gate. This reassignment does not authorize Phase 2–4 behavior.
 
 | Owner | Card | Task | Started | Finished | Actual time | Commit | Notes |
 |-------|------|------|---------|----------|-------------|--------|-------|
-| AI | AI-6 | Environment validation, acceptance coverage, and documentation | 2026-11-21 | 2026-11-22 | n/a (AI) | agent/issue-11 change | Node checks pass 51/51 with no skips; the supplied external kit suite passes 38/38; final npm run check and git diff --check evidence recorded at handoff |
+| AI | AI-6 | Environment validation, acceptance coverage, and documentation | 2026-11-21 | 2026-11-22 | n/a (AI) | agent/issue-11 change | Node checks pass 52/52 with no skips; the supplied external kit suite passes 38/38; final npm run check and git diff --check evidence recorded at handoff |
 
 ---
 

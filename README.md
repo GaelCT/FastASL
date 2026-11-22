@@ -66,10 +66,11 @@ secret information. Unknown routes and unsupported health methods return HTTP
 ### Security and request failures
 
 Helmet supplies baseline security headers, `x-powered-by` is disabled, and JSON
-parsing is bounded by `REQUEST_BODY_LIMIT`. Pino HTTP uses the shared
-credential/header redaction policy, omits URL query strings from request logs,
-and logs only safe status/type metadata for expected client errors so malformed
-request bodies and parser details are not serialized.
+parsing is bounded by `REQUEST_BODY_LIMIT`. Pino HTTP retains only reviewed
+non-sensitive request headers, omitting credential headers, `Referer`, and URL
+query strings from request logs. Request failures log only safe status/type
+metadata; unexpected error messages and stacks are never serialized, so request
+bodies, parser details, credentials, and filesystem paths stay out of these logs.
 
 Malformed JSON returns HTTP 400 and oversized JSON returns HTTP 413, both with
 exactly `{ "error": "Request failed" }`. Other safe client errors retain their
