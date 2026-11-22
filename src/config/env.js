@@ -1,57 +1,41 @@
-/**
- * HUMAN-3 — Environment contract.
- *
- * The human implements this file. AI must not fill in the implementation,
- * overwrite it, or duplicate its logic elsewhere.
- *
- * This is the ONLY application module allowed to read process.env
- * directly. Every other module receives validated configuration from the
- * export(s) defined here.
- *
- * Environment loading strategy:
- *   - `npm run dev` / `npm run start` use Node 24's built-in
- *     `--env-file-if-exists=.env`
- *     (https://nodejs.org/api/cli.html#--env-file-if-existsconfig).
- *   - Real environment variables supplied by the deployment environment
- *     take precedence over .env values.
- *   - No custom dotenv parser may be written or installed.
- *
- * What the human must define and implement with Zod
- * (https://zod.dev/):
- *
- *   NODE_ENV            Only development | test | production are valid.
- *                       Unknown values must FAIL, not silently fall back.
- *   HOST                Valid host representation with an intentional
- *                       default (e.g. loopback for development).
- *   PORT                A legal listening port (1-65535). Reject malformed
- *                       values ("abc", "-1", "70000", "080"?) — do not
- *                       accept a value merely because JS can coerce it to
- *                       a number.
- *   LOG_LEVEL           Restricted to reviewed Pino-compatible levels
- *                       (https://github.com/pinojs/pino/blob/main/docs/api.md#level-string).
- *   REQUEST_BODY_LIMIT  A bounded request-body policy. Bodies must never
- *                       be effectively unlimited.
- *
- * Invalid configuration behavior:
- *   Invalid supplied values must cause a CLEAR STARTUP FAILURE with a
- *   helpful message listing what was wrong. Do not silently replace an
- *   invalid production value with a default. Consider: PORT=abc,
- *   PORT=-1, PORT=70000, NODE_ENV=banana, LOG_LEVEL=madeup, and an
- *   invalid request limit — be able to explain exactly what happens for
- *   each at review.
- */
+import { z } from "zod";
 
-// TODO(HUMAN): add `import { z } from "zod";` when building the schema.
+const environmentSchema = z.object({
+  NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
+  HOST: z
+    .string()
+    .regex(/^\S{1,255}$/, "Must contain 1-255 non-whitespace characters")
+    .default("127.0.0.1"),
+  PORT: z
+    .string()
+    .regex(/^[1-9][0-9]*$/, "Must be a canonical decimal integer")
+    .transform(Number)
+    .refine((port) => port <= 65535, "Must be between 1 and 65535")
+    .default(3000),
+  LOG_LEVEL: z
+    .enum(["fatal", "error", "warn", "info", "debug", "trace", "silent"])
+    .default("info"),
+  REQUEST_BODY_LIMIT: z
+    .string()
+    .regex(/^(?:[1-9]|[1-9][0-9]|100)kb$/, "Must be an integer from 1kb through 100kb")
+    .default("100kb"),
+});
 
 /**
- * Read process.env, validate it against the human-owned schema, and
- * return normalized configuration.
+ * Validate Phase 1 environment configuration without mutating the source or
+ * including supplied environment values in validation errors.
  *
+ * @param {object} [source]
  * @returns {{ NODE_ENV: string, HOST: string, PORT: number,
- *             LOG_LEVEL: string, REQUEST_BODY_LIMIT: string }}
- * @throws When any environment value fails validation.
+ *   LOG_LEVEL: string, REQUEST_BODY_LIMIT: string }}
  */
-export function loadEnv() {
-  // TODO(HUMAN): implement in HUMAN-3.
-  throw new Error("TODO(HUMAN): implement environment validation (HUMAN-3)");
+export function loadEnv(source = process.env) {
+  const result = environmentSchema.safeParse(source);
+  if (!result.success) {
+    const details = result.error.issues
+      .map((issue) => `${issue.path.join(".") || "environment"}: ${issue.message}`)
+      .join("; ");
+    throw new Error(`Invalid environment configuration: ${details}`);
+  }
+  return result.data;
 }

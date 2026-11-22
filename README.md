@@ -1,78 +1,129 @@
-# FastASL — Phase 1: AI-Side Checkpoint (Node Foundation Scaffold)
+# FastASL — Node Phase 1 Foundation
 
-This branch (`reboot/p1-node-baseline`) is the **AI-side Phase 1 checkpoint**
-of the FastASL reboot. The legacy PHP/JWT/Apache implementation has been
-removed and the Node.js/Express tooling scaffold is in place — but the core
-application logic is deliberately **not implemented yet**. It is reserved for
-the human-owned cards (HUMAN-1/2/3) per `docs/CODE_OWNERSHIP.json`.
+FastASL is being rebuilt on Node.js 24 and Express 5. Phase 1 provides a small,
+secure server foundation and three truthful placeholder pages. It does **not**
+provide accounts, authentication, a database, ASL recognition, scoring, races,
+or a leaderboard; those belong to later reviewed phases.
 
-## What exists right now
+The project owner reassigned the five former HUMAN-1/2/3 Phase 1 implementation
+scaffolds to AI on 2026-11-21. Architecture decisions and phase/PR gates remain
+human-reviewed; see `docs/CODE_OWNERSHIP.json` and `docs/HUMAN_AI_WORKLOG.md`.
 
-- Node.js 24 / Express 5 project setup (plain JavaScript, ES modules).
-- Dependency lockfile (`npm ci` reproducible) with runtime deps:
-  `express`, `helmet`, `pino`, `pino-http`, `zod`; dev deps:
-  `@eslint/js`, `eslint`, `globals`, `supertest`.
-- ESLint (flat config), Node-only CI workflow.
-- Pino logger with credential/header redaction, plus tests proving redaction
-  against serialized output.
-- Safe 404 middleware and final error middleware (implemented, AI-owned).
-- Ownership guard: `docs/CODE_OWNERSHIP.json` +
-  `scripts/check-human-ownership.mjs`, with automated tests for the guard
-  itself.
-- Three preserved page shells rendered as honest placeholders
-  (`/login.html`, `/dashboard.html`, `/race.html`) and the original stylesheet.
-
-## What is still a TODO (human-owned; intentionally non-functional)
-
-The following files contain scaffolding/JSDoc/TODO markers only and throw
-until the human implements them:
-
-- **App composition** — `src/app.js` (`createApp()`): Express app, Helmet,
-  request logging, body limits, static `public/` boundary, `/api` mounting.
-- **Environment validation** — `src/config/env.js` (`loadEnv()`): Zod schema
-  for `NODE_ENV`, `HOST`, `PORT`, `LOG_LEVEL`, `REQUEST_BODY_LIMIT`.
-- **Health routing** — `src/routes/health.js`: the `/api/health` contract.
-- **Server startup** — `src/server.js` (`main()`): listener lifecycle,
-  SIGINT/SIGTERM shutdown.
-- **Integration assertions** — `tests/integration/health.test.js`: all twelve
-  acceptance/exposure assertion groups are `test.todo` placeholders.
-
-Because of this:
-
-- `npm run dev` / `npm start` do **not** work yet (the server entry point
-  throws a TODO error by design).
-- `GET /api/health` does **not** exist yet.
-- The integration suite currently reports its assertions as pending TODOs;
-  only the AI-owned unit tests pass today.
-
-## Requirements
+## Requirements and setup
 
 - [Node.js 24 LTS](https://nodejs.org/download/release/latest-v24.x/)
-
-## Setup
-
-```bash
-npm ci                 # install exact dependency versions
-cp .env.example .env   # optional locally; validation arrives with HUMAN-3
-```
-
-Environment variables will be loaded by Node itself via
-`--env-file-if-exists=.env`; there is no dotenv package.
-
-## Verification (current state)
+- npm (included with Node.js)
 
 ```bash
-npm run lint               # passes
-npm test                   # AI-owned unit tests pass; HUMAN-3 todos listed
-npm run test:integration   # lists the pending human-owned assertion groups
-npm run check              # lint + tests
-
-npm run check:ownership -- <checkpoint-commit>   # ownership guard
+npm ci
+cp .env.example .env   # optional; the documented defaults work without it
+npm start
 ```
 
-## Documentation
+The default server address is `http://127.0.0.1:3000`. Use `npm run dev` for
+Node watch mode during development. Both commands use Node's built-in
+`--env-file-if-exists=.env`; no custom dotenv loader is involved.
 
-- `docs/CODE_OWNERSHIP.json` — which paths are human-owned vs AI-owned.
-- `docs/REBOOT_DECISIONS.md` — locked architecture decisions.
-- `docs/LEGACY_SNAPSHOT.md` — what was deleted and where it lives in history.
-- `docs/HUMAN_AI_WORKLOG.md` — human/AI card tracking with commit IDs.
+## Environment contract
+
+`src/config/env.js` is the only application module that reads `process.env`.
+Every supplied value is validated before the server listens. Invalid values
+throw a startup-safe error naming each failing field; they are never silently
+replaced by defaults.
+
+| Variable | Default | Accepted values |
+|---|---|---|
+| `NODE_ENV` | `development` | `development`, `test`, or `production` |
+| `HOST` | `127.0.0.1` | 1–255 non-whitespace characters |
+| `PORT` | `3000` | Canonical decimal integer `1`–`65535`; normalized to a number |
+| `LOG_LEVEL` | `info` | `fatal`, `error`, `warn`, `info`, `debug`, `trace`, or `silent` |
+| `REQUEST_BODY_LIMIT` | `100kb` | Integer lowercase-`kb` value from `1kb` through `100kb` |
+
+## Phase 1 behavior
+
+### Health
+
+```bash
+curl --fail http://127.0.0.1:3000/api/health
+```
+
+`GET /api/health` returns HTTP 200, a JSON content type, and exactly:
+
+```json
+{ "status": "ok" }
+```
+
+It deliberately exposes no runtime version, environment, database, Git, or
+secret information. Unknown routes and unsupported health methods return HTTP
+404 with exactly `{ "error": "Not found" }`.
+
+### Truthful pages
+
+- `/login.html` — accounts and sign-in are unavailable.
+- `/dashboard.html` — future race durations and leaderboard remain unavailable.
+- `/race.html` — recognition, scoring, and submission are not implemented.
+
+### Security and request failures
+
+Helmet supplies baseline security headers, `x-powered-by` is disabled, and JSON
+parsing is bounded by `REQUEST_BODY_LIMIT`. Pino HTTP retains only reviewed
+non-sensitive request headers, omitting credential headers, `Referer`, and URL
+query strings from request logs. Request failures log only safe status/type
+metadata; unexpected error messages and stacks are never serialized, so request
+bodies, parser details, credentials, and filesystem paths stay out of these logs.
+
+Malformed JSON returns HTTP 400 and oversized JSON returns HTTP 413, both with
+exactly `{ "error": "Request failed" }`. Other safe client errors retain their
+4xx status and that payload. Unexpected failures return HTTP 500 with exactly
+`{ "error": "Internal server error" }`. Responses do not include stack traces,
+parser details, request bodies, or filesystem paths.
+
+`public/` is the only static document root. The middleware checks lexical and
+resolved paths plus file identity before and after opening, then streams the
+response from that same file handle rather than resolving the path again. It
+serves regular files only, disables directory indexes and redirects, denies
+dotfiles, and rejects symlinks whose targets escape `public/`. Repository files,
+environment files, backend/PHP paths, SQL, internal docs, traversal, and
+encoded-separator attempts therefore fall through to safe 404s.
+
+The integration suite includes outside-secret link and deterministic
+after-open path-swap canaries. The outside-secret canary uses a file symlink on
+POSIX hosts and a directory junction on Windows, requesting the secret through
+either link without a conditional skip. The path-swap regression uses a
+directory rename and runs without symlink privileges.
+
+## Verification
+
+```bash
+npm run test:unit
+npm run test:integration
+npm run check
+git diff --check
+python3 -m unittest discover -s ../issue-to-pr-kit-kimi/tests
+```
+
+`npm run check` runs ESLint and the complete Node test suite. The final command
+runs the supplied issue-to-pr kit regression suite from its sibling checkout.
+Server lifecycle
+unit tests use injected listeners/fakes, so importing `src/server.js` never
+opens a port. Real browser and signal smoke verification is performed against
+the running app independently before the Phase 1 gate.
+
+The ownership checker remains available for a recorded human checkpoint:
+
+```bash
+npm run check:ownership -- <checkpoint-commit>
+```
+
+## Roadmap and ownership
+
+- **Phase 1:** Node/Express foundation, validation, safe static serving, health,
+  bounded errors, and graceful shutdown.
+- **Phase 2 (not implemented):** honest practice and server-authoritative races.
+- **Phase 3 (not implemented):** accounts, opaque sessions, persistence, and
+  abuse controls.
+- **Phase 4 (not implemented):** a real classifier contract, leaderboard, and
+  release hardening.
+
+See `FASTASL_NODE_REBOOT_4_PHASE_PLAN.md`, `docs/REBOOT_DECISIONS.md`, and
+`docs/LEGACY_SNAPSHOT.md` for the plan, locked decisions, and legacy archive.

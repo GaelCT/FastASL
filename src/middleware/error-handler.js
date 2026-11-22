@@ -3,8 +3,9 @@ import logger from "../lib/logger.js";
 /**
  * Final Express error middleware.
  *
- * Logs the error server-side (with redaction applied by the shared
- * logger) and returns a stable, non-sensitive JSON failure response.
+ * Logs only reviewed status/type metadata for request failures and returns a
+ * stable, non-sensitive JSON failure response. Error messages and stacks are
+ * never serialized because they can contain request data or filesystem paths.
  * Client responses must never contain stack traces, filesystem paths,
  * database details, or other internals.
  *
@@ -12,21 +13,32 @@ import logger from "../lib/logger.js";
  * no domain-specific error mapping.
  *
  * @param {unknown} error
- * @param {import("express").Request} _req
+ * @param {import("express").Request} req
  * @param {import("express").Response} res
  * @param {import("express").NextFunction} _next
  */
-export function errorHandler(error, _req, res, _next) {
+export function errorHandler(error, req, res, _next) {
   const rawStatus =
     typeof error === "object" && error !== null
       ? (error.status ?? error.statusCode)
       : undefined;
   const status =
-    Number.isInteger(rawStatus) && rawStatus >= 400 && rawStatus <= 599
+    Number.isInteger(rawStatus) && rawStatus >= 400 && rawStatus <= 499
       ? rawStatus
       : 500;
 
-  logger.error({ err: error }, "Unhandled request error");
+  const requestLogger = req.log ?? logger;
+  if (status < 500) {
+    const metadata = { status };
+    const type =
+      typeof error === "object" && error !== null ? error.type : undefined;
+    if (typeof type === "string" && /^[a-z0-9._-]{1,100}$/i.test(type)) {
+      metadata.type = type;
+    }
+    requestLogger.error(metadata, "Request client error");
+  } else {
+    requestLogger.error({ status }, "Unhandled request error");
+  }
 
   res.status(status).json({
     error: status >= 500 ? "Internal server error" : "Request failed",

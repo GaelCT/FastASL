@@ -1,7 +1,7 @@
 ---
 name: loop-verifier
 description: Only for the /issue-to-pr workflow, which starts this agent itself. Never use it for any other task, even one that looks like testing or verifying a change.
-tools: Read, Grep, Glob, Bash, ReadMediaFile
+tools: Read, Grep, Glob, Bash, ReadMediaFile, TaskList, TaskOutput, TaskStop
 subagents: []
 ---
 
