@@ -51,7 +51,8 @@ function isRangeFresh(req, etag, mtimeMs) {
     return true;
   }
   if (ifRange.includes('"')) {
-    return ifRange.trim() === etag;
+    const value = ifRange.trim();
+    return !value.startsWith("W/") && value === etag;
   }
 
   const ifRangeDate = Date.parse(ifRange);

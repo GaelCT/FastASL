@@ -199,6 +199,22 @@ test("static single byte ranges return exact bytes and range metadata", async ()
   assert.equal(head.text, undefined);
 });
 
+test("a weak If-Range entity tag ignores Range and returns the full file", async () => {
+  const app = createApp(config);
+  const original = await request(app).get("/login.html");
+  assert.match(original.headers.etag, /^W\//);
+
+  const response = await request(app)
+    .get("/login.html")
+    .set("Range", "bytes=0-9")
+    .set("If-Range", original.headers.etag);
+
+  assert.equal(response.status, 200);
+  assert.equal(response.text, LOGIN_PAGE.toString("utf8"));
+  assert.equal(response.headers["content-length"], String(LOGIN_PAGE.length));
+  assert.equal(response.headers["content-range"], undefined);
+});
+
 test("malformed and unsatisfiable static ranges return a safe 416", async () => {
   const app = createApp(config);
   for (const range of ["bytes=invalid", "bytes=5-2", `bytes=${LOGIN_PAGE.length}-`]) {

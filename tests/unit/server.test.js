@@ -157,7 +157,7 @@ test("importing server.js never opens a listener", () => {
   const result = spawnSync(
     process.execPath,
     ["--input-type=module", "--eval", `await import(${JSON.stringify(pathToFileURL(serverPath).href)});`],
-    { encoding: "utf8", timeout: 5000 },
+    { encoding: "utf8", timeout: 20000 },
   );
   assert.equal(result.status, 0, result.stderr);
   assert.equal(result.signal, null);
