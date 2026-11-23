@@ -77,6 +77,24 @@ test("scoreAttempt penalizes omissions, extras, and positional mismatches", () =
   assert.equal(score("abc", "ab").accuracy, 66.67);
 });
 
+test("scoreAttempt returns zero WPM for zero correct characters with subnormal elapsed time", () => {
+  const result = scoreAttempt({
+    prompt: "abc",
+    typedText: "",
+    startedAtMs: 0,
+    finishedAtMs: Number.MIN_VALUE,
+  });
+
+  assert.deepEqual(result, {
+    elapsedMs: Number.MIN_VALUE,
+    correctCharacters: 0,
+    typedCharacters: 0,
+    wpm: 0,
+    accuracy: 0,
+  });
+  assertFiniteNonnegativeMetrics(result);
+});
+
 test("scoreAttempt compares Unicode code points positionally", () => {
   const result = score("a😀c", "a😀x");
   assert.equal(result.correctCharacters, 2);

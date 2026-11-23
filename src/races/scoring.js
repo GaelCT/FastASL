@@ -55,7 +55,7 @@ export function scoreAttempt({
       ? 0
       : roundMetric((100 * correctCharacters) / denominator);
   const wpm =
-    elapsedMs === 0
+    elapsedMs === 0 || correctCharacters === 0
       ? 0
       : roundMetric((correctCharacters / 5) / (elapsedMs / 60000));
 
