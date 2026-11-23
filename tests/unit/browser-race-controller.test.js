@@ -105,13 +105,15 @@ test("empty input completes with the server zero result rather than browser scor
 });
 
 for (const durationSeconds of [30, 60]) {
-  test(`${durationSeconds}-second timer submits once before the server deadline and returns exact results`, async () => {
+  test(`${durationSeconds}-second timer submits once at zero and returns exact results`, async () => {
     const h = harness();
     await h.controller.start(durationSeconds);
-    h.timers[0].options.onTick(1_001);
-    assert.equal(h.calls.completions.length, 0);
+    for (const remainingMs of [durationSeconds * 1000, 1_001, 1_000, 999, 1]) {
+      h.timers[0].options.onTick(remainingMs);
+      assert.equal(h.calls.completions.length, 0);
+    }
 
-    h.timers[0].options.onTick(1_000);
+    h.timers[0].options.onTick(0);
     h.timers[0].options.onExpire();
     h.timers[0].options.onExpire();
     await h.controller.finish();
