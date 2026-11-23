@@ -44,6 +44,63 @@ function response(status, body) {
   return { status, async json() { return body; } };
 }
 
+function stubWorker(onPost) {
+  const workerDescriptor = Object.getOwnPropertyDescriptor(globalThis, "Worker");
+  const locationDescriptor = Object.getOwnPropertyDescriptor(globalThis, "location");
+  const workers = [];
+  class WorkerStub {
+    constructor(url, options) {
+      this.url = url;
+      this.options = options;
+      this.listeners = new Map();
+      this.terminated = false;
+      workers.push(this);
+    }
+    addEventListener(type, listener) {
+      const listeners = this.listeners.get(type) ?? [];
+      listeners.push(listener);
+      this.listeners.set(type, listeners);
+    }
+    postMessage(message) {
+      this.message = message;
+      queueMicrotask(() => onPost(this));
+    }
+    emit(type, data) {
+      for (const listener of this.listeners.get(type) ?? []) {
+        listener({ data, preventDefault() {} });
+      }
+    }
+    terminate() {
+      this.terminated = true;
+    }
+  }
+  Object.defineProperty(globalThis, "Worker", {
+    configurable: true,
+    writable: true,
+    value: WorkerStub,
+  });
+  Object.defineProperty(globalThis, "location", {
+    configurable: true,
+    writable: true,
+    value: new URL("https://fastasl.test/race.html"),
+  });
+  return {
+    workers,
+    restore() {
+      if (workerDescriptor) {
+        Object.defineProperty(globalThis, "Worker", workerDescriptor);
+      } else {
+        delete globalThis.Worker;
+      }
+      if (locationDescriptor) {
+        Object.defineProperty(globalThis, "location", locationDescriptor);
+      } else {
+        delete globalThis.location;
+      }
+    },
+  };
+}
+
 for (const durationSeconds of [30, 60]) {
   test(`createRace sends only the ${durationSeconds}-second request and strictly returns its DTO`, async () => {
     const calls = [];
@@ -82,6 +139,84 @@ test("completeRace sends only typed text and returns exact authoritative Unicode
   assert.equal(calls[0][0], `/api/races/${RACE_ID}/complete`);
   assert.deepEqual(JSON.parse(calls[0][1].body), { typedText: "" });
   assert.equal(calls[0][1].credentials, "same-origin");
+});
+
+test("default browser transport uses a same-origin module worker and returns exact DTOs", async () => {
+  const stub = stubWorker((worker) => {
+    worker.emit("message", {
+      status: 201,
+      text: JSON.stringify({ race: race(30) }),
+    });
+  });
+  try {
+    const api = createApi();
+    const created = await api.createRace(30);
+    assert.deepEqual(created, race(30));
+    assert.equal(stub.workers.length, 1);
+    const [worker] = stub.workers;
+    assert.ok(worker.url.pathname.endsWith("/public/assets/js/api.js"));
+    assert.deepEqual(worker.options, { type: "module" });
+    assert.equal(worker.message.url, "https://fastasl.test/api/races");
+    assert.deepEqual(worker.message.options, {
+      method: "POST",
+      credentials: "same-origin",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ durationSeconds: 30 }),
+    });
+    assert.equal(worker.terminated, true);
+  } finally {
+    stub.restore();
+  }
+});
+
+test("worker HTTP and network failures remain safe ApiErrors", async () => {
+  const outcomes = [
+    { status: 410, text: JSON.stringify({ error: "SENSITIVE SERVER DETAIL" }) },
+    { failed: true },
+  ];
+  const stub = stubWorker((worker) => {
+    worker.emit("message", outcomes.shift());
+  });
+  try {
+    const api = createApi();
+    await assert.rejects(api.createRace(30), (error) => {
+      assert.ok(error instanceof ApiError);
+      assert.equal(error.status, 410);
+      assert.equal(error.message, "Request failed");
+      return true;
+    });
+    await assert.rejects(api.createRace(30), (error) => {
+      assert.ok(error instanceof ApiError);
+      assert.equal(error.status, 0);
+      assert.equal(error.message, "Network request failed");
+      return true;
+    });
+    assert.equal(stub.workers.length, 2);
+    assert.ok(stub.workers.every((worker) => worker.terminated));
+  } finally {
+    stub.restore();
+  }
+});
+
+test("aborting a worker request terminates it without sending the signal", async () => {
+  const stub = stubWorker(() => {});
+  try {
+    const api = createApi();
+    const abortController = new AbortController();
+    const pending = api.createRace(30, { signal: abortController.signal });
+    await Promise.resolve();
+    const [worker] = stub.workers;
+    assert.equal("signal" in worker.message.options, false);
+    abortController.abort();
+    await assert.rejects(pending, (error) => {
+      assert.ok(error instanceof ApiError);
+      assert.equal(error.message, "Network request failed");
+      return true;
+    });
+    assert.equal(worker.terminated, true);
+  } finally {
+    stub.restore();
+  }
 });
 
 test("creation rejects malformed success DTOs, unknown fields, and client/server duration mismatch", async () => {

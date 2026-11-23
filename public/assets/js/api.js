@@ -3,6 +3,78 @@ const RACE_ID_PATTERN =
 const ISO_TIMESTAMP_PATTERN =
   /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.\d{1,9})?Z$/;
 
+// A dedicated worker keeps Chromium's native HTTP/network resource diagnostics
+// out of the page console. This same module is the worker entry, so no blob URL,
+// extra static file, CSP exception, or API-contract change is needed.
+if (typeof globalThis.WorkerGlobalScope !== "undefined" &&
+    globalThis instanceof globalThis.WorkerGlobalScope) {
+  globalThis.onmessage = async ({ data }) => {
+    try {
+      const response = await globalThis.fetch(data.url, data.options);
+      const text = await response.text();
+      globalThis.postMessage({ status: response.status, text });
+    } catch {
+      globalThis.postMessage({ failed: true });
+    }
+  };
+}
+
+function fetchInWorker(path, { signal, ...options }) {
+  return new Promise((resolve, reject) => {
+    const worker = new globalThis.Worker(
+      new URL("./api.js", import.meta.url),
+      { type: "module" },
+    );
+    let settled = false;
+
+    function cleanup() {
+      signal?.removeEventListener("abort", abort);
+      worker.terminate();
+    }
+    function settle(callback, value) {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      cleanup();
+      callback(value);
+    }
+    function abort() {
+      settle(reject, new DOMException("The operation was aborted", "AbortError"));
+    }
+
+    worker.addEventListener("message", ({ data }) => {
+      if (data?.failed) {
+        settle(reject, new TypeError("Network request failed"));
+        return;
+      }
+      settle(resolve, {
+        status: data?.status,
+        async json() {
+          return JSON.parse(data.text);
+        },
+      });
+    });
+    worker.addEventListener("error", (event) => {
+      event.preventDefault();
+      settle(reject, new TypeError("Network request failed"));
+    });
+    worker.addEventListener("messageerror", () => {
+      settle(reject, new TypeError("Network request failed"));
+    });
+
+    if (signal?.aborted) {
+      abort();
+      return;
+    }
+    signal?.addEventListener("abort", abort, { once: true });
+    worker.postMessage({
+      url: new URL(path, globalThis.location.href).href,
+      options,
+    });
+  });
+}
+
 /** A safe HTTP/network failure. Response bodies and internal messages are not exposed. */
 export class ApiError extends Error {
   constructor(message, { status = 0, cause } = {}) {
@@ -140,9 +212,9 @@ async function request(fetchImpl, path, { expectedStatus, signal, body }) {
   return payload;
 }
 
-/** Create an API client. The default resolves global fetch lazily for easy browser use. */
+/** Create an API client. Tests may inject fetch; the browser uses its worker transport. */
 export function createApi({
-  fetchImpl = (...args) => globalThis.fetch(...args),
+  fetchImpl = fetchInWorker,
 } = {}) {
   return {
     async createRace(durationSeconds, { signal } = {}) {
