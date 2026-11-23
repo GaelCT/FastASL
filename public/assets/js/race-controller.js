@@ -7,6 +7,8 @@ const START_FAILURE =
 const FINISH_FAILURE =
   "Could not finish the race. Restart or return to the main menu; no result is shown.";
 const EXPIRED = "Race expired. Restart to try again or return to the main menu.";
+// Submit before the server deadline so request latency cannot turn a full timer into a 410.
+const AUTO_COMPLETE_REMAINING_MS = 1_000;
 
 export function createRaceController({
   api,
@@ -110,6 +112,9 @@ export function createRaceController({
         onTick(remainingMs) {
           if (operationIsCurrent(operationId)) {
             dispatch({ type: "TIMER_TICK", operationId, remainingMs });
+            if (state.status === "active" && remainingMs <= AUTO_COMPLETE_REMAINING_MS) {
+              void finish();
+            }
           }
         },
         onExpire() {

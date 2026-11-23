@@ -104,17 +104,28 @@ test("empty input completes with the server zero result rather than browser scor
   assert.equal(h.states.at(-1).result, zero);
 });
 
-test("timer expiry submits exactly once and a later finish is inert", async () => {
-  const h = harness();
-  await h.controller.start(30);
-  h.timers[0].options.onTick(0);
-  h.timers[0].options.onExpire();
-  h.timers[0].options.onExpire();
-  await h.controller.finish();
-  await Promise.resolve();
-  assert.equal(h.calls.completions.length, 1);
-  assert.equal(h.states.at(-1).status, "results");
-});
+for (const durationSeconds of [30, 60]) {
+  test(`${durationSeconds}-second timer submits once before the server deadline and returns exact results`, async () => {
+    const h = harness();
+    await h.controller.start(durationSeconds);
+    h.timers[0].options.onTick(1_001);
+    assert.equal(h.calls.completions.length, 0);
+
+    h.timers[0].options.onTick(1_000);
+    h.timers[0].options.onExpire();
+    h.timers[0].options.onExpire();
+    await h.controller.finish();
+    await Promise.resolve();
+
+    assert.equal(h.calls.completions.length, 1);
+    assert.equal(h.timers[0].disposed, 1);
+    assert.equal(h.states.at(-1).status, "results");
+    assert.equal(h.states.at(-1).result, result);
+    assert.equal(h.states.at(-1).result.wpm, 12.34);
+    assert.equal(h.states.at(-1).result.accuracy, 56.78);
+    assert.equal(h.states.at(-1).remainingMs, 0);
+  });
+}
 
 test("start and finish failures are safe, truthful, and recover only through explicit restart", async () => {
   const startFailure = harness({
