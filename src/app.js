@@ -5,6 +5,9 @@ import { fileURLToPath } from "node:url";
 import { loadEnv } from "./config/env.js";
 import { createLogger } from "./lib/logger.js";
 import { createHealthRouter } from "./routes/health.js";
+import { createRaceRouter } from "./routes/races.js";
+import { createRaceService } from "./races/race-service.js";
+import { createRaceRepository } from "./races/in-memory-race-repository.js";
 import { errorHandler } from "./middleware/error-handler.js";
 import { notFoundHandler } from "./middleware/not-found.js";
 import { createPublicStaticMiddleware } from "./middleware/public-static.js";
@@ -40,21 +43,28 @@ function serializeRequest(req) {
 }
 
 /** Compose the Express application without opening a network listener. */
-export function createApp(config = loadEnv(), options = {}) {
+export function createApp(
+  config = loadEnv(),
+  {
+    logger,
+    raceService = createRaceService({ repository: createRaceRepository() }),
+  } = {},
+) {
   const app = express();
-  const logger = options.logger ?? createLogger({ level: config.LOG_LEVEL });
+  const requestLogger = logger ?? createLogger({ level: config.LOG_LEVEL });
 
   app.disable("x-powered-by");
   app.use(helmet());
   app.use(
     pinoHttp({
-      logger,
+      logger: requestLogger,
       serializers: { req: serializeRequest },
     }),
   );
   app.use(express.json({ limit: config.REQUEST_BODY_LIMIT }));
   app.use(createPublicStaticMiddleware(PUBLIC_ROOT));
   app.use("/api", createHealthRouter());
+  app.use("/api/races", createRaceRouter({ service: raceService }));
   app.use(notFoundHandler);
   app.use(errorHandler);
 
