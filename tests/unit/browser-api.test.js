@@ -4,6 +4,11 @@ import { ApiError, createApi } from "../../public/assets/js/api.js";
 
 const RACE_ID = "123e4567-e89b-42d3-a456-426614174000";
 const STARTED_AT = "2026-11-22T12:00:00.000Z";
+const IMPOSSIBLE_TIMESTAMPS = [
+  "2026-02-29T12:00:00Z",
+  "2026-02-30T12:00:00Z",
+  "2026-02-31T12:00:00Z",
+];
 
 function race(durationSeconds = 30) {
   return {
@@ -104,6 +109,44 @@ test("creation rejects malformed success DTOs, unknown fields, and client/server
     fetchImpl: async () => response(201, { race: race(), result: result() }),
   });
   await assert.rejects(extraTopLevel.createRace(30), /Invalid server response/);
+});
+
+test("creation rejects impossible calendar timestamps with safe ApiErrors", async () => {
+  for (const field of ["startedAt", "expiresAt", "serverNow"]) {
+    for (const timestamp of IMPOSSIBLE_TIMESTAMPS) {
+      const api = createApi({
+        fetchImpl: async () => response(201, {
+          race: { ...race(), [field]: timestamp },
+        }),
+      });
+      await assert.rejects(api.createRace(30), (error) => {
+        assert.ok(error instanceof ApiError);
+        assert.equal(error.message, "Invalid server response");
+        assert.equal(error.status, 0);
+        assert.equal(error.message.includes(timestamp), false);
+        return true;
+      });
+    }
+  }
+});
+
+test("completion rejects impossible calendar timestamps with safe ApiErrors", async () => {
+  for (const field of ["startedAt", "finishedAt", "expiresAt"]) {
+    for (const timestamp of IMPOSSIBLE_TIMESTAMPS) {
+      const api = createApi({
+        fetchImpl: async () => response(200, {
+          result: { ...result(), [field]: timestamp },
+        }),
+      });
+      await assert.rejects(api.completeRace(RACE_ID, "abc"), (error) => {
+        assert.ok(error instanceof ApiError);
+        assert.equal(error.message, "Invalid server response");
+        assert.equal(error.status, 0);
+        assert.equal(error.message.includes(timestamp), false);
+        return true;
+      });
+    }
+  }
 });
 
 test("completion rejects nonfinite, out-of-range, mismatched, and malformed result DTOs", async () => {

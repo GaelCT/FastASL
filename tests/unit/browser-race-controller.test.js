@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { createRaceController } from "../../public/assets/js/race-controller.js";
-import { ApiError } from "../../public/assets/js/api.js";
+import { ApiError, createApi } from "../../public/assets/js/api.js";
 
 const RACE_ID = "123e4567-e89b-42d3-a456-426614174000";
 function race(durationSeconds = 30) {
@@ -148,6 +148,62 @@ test("start and finish failures are safe, truthful, and recover only through exp
   assert.equal(finishFailure.states.at(-1).status, "error");
   assert.match(finishFailure.states.at(-1).error.message, /no result is shown/);
   assert.equal(finishFailure.states.at(-1).error.message.includes("SENSITIVE"), false);
+});
+
+test("impossible creation timestamps become safe errors with restart recovery", async () => {
+  const timestamp = "2026-02-29T12:00:00Z";
+  const api = createApi({
+    fetchImpl: async () => ({
+      status: 201,
+      async json() {
+        return { race: { ...race(), startedAt: timestamp } };
+      },
+    }),
+  });
+  const h = harness({ createRace: (...args) => api.createRace(...args) });
+
+  await h.controller.start(30);
+  assert.equal(h.states.at(-1).status, "error");
+  assert.equal(h.states.at(-1).race, null);
+  assert.equal(h.states.at(-1).result, null);
+  assert.match(h.states.at(-1).error.message, /Could not start/);
+  assert.equal(h.states.at(-1).error.message.includes(timestamp), false);
+  assert.equal(h.states.some((state) => state.status === "active"), false);
+  assert.equal(h.timers.length, 0);
+
+  h.controller.restart();
+  assert.equal(h.states.at(-1).status, "idle");
+});
+
+test("impossible completion timestamps become safe errors with restart recovery", async () => {
+  const timestamp = "2026-02-30T12:00:00Z";
+  const api = createApi({
+    fetchImpl: async () => ({
+      status: 200,
+      async json() {
+        return {
+          result: {
+            ...result,
+            startedAt: "2026-11-22T12:00:00.000Z",
+            finishedAt: timestamp,
+            expiresAt: "2026-11-22T12:00:30.000Z",
+          },
+        };
+      },
+    }),
+  });
+  const h = harness({ completeRace: (...args) => api.completeRace(...args) });
+
+  await h.controller.start(30);
+  await h.controller.finish();
+  assert.equal(h.states.at(-1).status, "error");
+  assert.equal(h.states.at(-1).result, null);
+  assert.match(h.states.at(-1).error.message, /no result is shown/);
+  assert.equal(h.states.at(-1).error.message.includes(timestamp), false);
+  assert.equal(h.states.some((state) => state.status === "results"), false);
+
+  h.controller.restart();
+  assert.equal(h.states.at(-1).status, "idle");
 });
 
 test("expected 410 completion reports Race expired without fabricating a result", async () => {
