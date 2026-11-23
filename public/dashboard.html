@@ -8,32 +8,32 @@
 </head>
 <body>
 
-    <div id="start-screen" class="screen active">
+    <main id="start-screen" class="screen active">
         <div class="container">
             <h1>ASL RACER</h1>
-            <p class="subtitle">Continuous Fingerspelling Challenge</p>
+            <p class="subtitle">Keyboard development/practice only</p>
 
-            <div class="mode-select">
-                <a href="/race.html" class="action-btn">60 SECOND RUSH (COMING IN PHASE 2)</a>
-                <a href="/race.html" class="action-btn secondary">30 SECOND BLITZ (COMING IN PHASE 2)</a>
-            </div>
+            <nav class="mode-select" aria-label="Practice race durations">
+                <a href="/race.html?duration=60" class="action-btn">60 SECOND RUSH</a>
+                <a href="/race.html?duration=30" class="action-btn secondary">30 SECOND BLITZ</a>
+            </nav>
 
             <div class="leaderboard-panel ui-panel">
                 <div id="leaderboard-list">
-                    <p class="empty-board">Community leaderboard is not available yet.</p>
+                    <p class="empty-board">Community leaderboard is not available yet. Practice results are unranked.</p>
                 </div>
             </div>
 
             <div class="controls-info">
-                <p>Practice races are being rebuilt and will be unranked.</p>
-                <p>No accounts, scores, or rankings exist in this build.</p>
+                <p>Choose a duration, then explicitly start a real server-backed keyboard practice race.</p>
+                <p>ASL recognition is unavailable. No accounts, camera input, classifier output, or rankings are used.</p>
             </div>
 
             <div class="mode-select">
                 <a href="/login.html" class="action-btn secondary">LOGIN PAGE</a>
             </div>
         </div>
-    </div>
+    </main>
 
 </body>
 </html>

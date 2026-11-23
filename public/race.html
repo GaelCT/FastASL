@@ -3,32 +3,68 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ASL Racer | Active Track</title>
+    <title>ASL Racer | Keyboard Practice</title>
     <link rel="stylesheet" href="/assets/css/main.css">
+    <script type="module" src="/assets/js/race.js"></script>
 </head>
 <body>
+    <main id="game-screen" class="screen active practice-screen">
+        <div class="container practice-container">
+            <header class="practice-header">
+                <h1>PRACTICE RACE</h1>
+                <p class="subtitle">Keyboard development/practice only</p>
+                <p class="practice-disclosure"><strong>Unranked.</strong> ASL recognition is unavailable. No camera, classifier, or leaderboard is used.</p>
+            </header>
 
-    <div id="game-screen" class="screen active">
-        <div class="container">
-            <h1>PRACTICE RACE</h1>
-            <p class="subtitle">UNDER RECONSTRUCTION</p>
+            <section class="race-setup ui-panel" aria-labelledby="setup-heading">
+                <h2 id="setup-heading" class="section-heading">Choose your practice mode</h2>
+                <div class="duration-control">
+                    <label for="duration">Race duration</label>
+                    <select id="duration" name="duration" class="ui-input">
+                        <option value="30">30 seconds</option>
+                        <option value="60">60 seconds</option>
+                    </select>
+                </div>
+                <button id="start-race" type="button" class="action-btn">START PRACTICE</button>
+            </section>
 
-            <div class="leaderboard-panel ui-panel">
-                <p class="empty-board">
-                    Practice race functionality is being rebuilt and will return as an
-                    unranked practice mode in a later phase.
-                </p>
-                <p class="empty-board">
-                    This build does not perform ASL recognition, does not score races,
-                    and does not submit any results.
-                </p>
-            </div>
+            <section class="race-hud" aria-label="Race status">
+                <div class="stat-box">
+                    <p class="stat-label">TIME REMAINING</p>
+                    <p id="timer" class="stat-value" role="timer" aria-live="off">0:00</p>
+                </div>
+            </section>
 
-            <div class="end-actions">
+            <p id="race-status" class="race-status" role="status" aria-live="polite" aria-atomic="true">Choose a duration, then start when you are ready.</p>
+
+            <section id="practice-panel" class="practice-panel ui-panel" aria-labelledby="prompt-heading" hidden>
+                <h2 id="prompt-heading" class="section-heading">Type this prompt</h2>
+                <p id="prompt" class="practice-prompt">Your server-selected prompt will appear here.</p>
+                <div class="practice-input-group">
+                    <label for="typed-text">Keyboard practice text</label>
+                    <textarea id="typed-text" class="ui-input" rows="4" maxlength="1000" autocomplete="off" autocapitalize="off" spellcheck="false" aria-describedby="input-help" disabled></textarea>
+                    <p id="input-help" class="input-help">Type or edit freely. Press Enter to finish; IME composition Enter will not submit.</p>
+                </div>
+                <button id="finish-race" type="button" class="action-btn">FINISH EARLY</button>
+            </section>
+
+            <section id="results" class="results-panel ui-panel" aria-labelledby="results-heading" aria-live="polite" aria-atomic="true" tabindex="-1" hidden>
+                <h2 id="results-heading" class="section-heading">Unranked practice results</h2>
+                <dl class="practice-results-grid">
+                    <div class="result-card"><dt>Words per minute</dt><dd id="result-wpm" class="big-stat">—</dd></div>
+                    <div class="result-card"><dt>Accuracy</dt><dd id="result-accuracy" class="big-stat">—</dd></div>
+                    <div class="result-card"><dt>Correct characters</dt><dd id="result-correct" class="big-stat">—</dd></div>
+                    <div class="result-card"><dt>Typed characters</dt><dd id="result-typed" class="big-stat">—</dd></div>
+                    <div class="result-card"><dt>Elapsed time</dt><dd id="result-elapsed" class="result-detail">—</dd></div>
+                </dl>
+            </section>
+
+            <div class="end-actions practice-actions">
+                <button id="restart-race" type="button" class="action-btn secondary" hidden>RESTART</button>
                 <a href="/dashboard.html" class="action-btn secondary">MAIN MENU</a>
             </div>
+            <noscript><p class="race-status">JavaScript is required to start a server-backed practice race.</p></noscript>
         </div>
-    </div>
-
+    </main>
 </body>
 </html>

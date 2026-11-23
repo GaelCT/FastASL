@@ -1,7 +1,7 @@
 {
   "version": 2,
-  "phase": 1,
-  "description": "FastASL code ownership manifest. HUMAN-OWNED implementation paths must not be implemented, overwritten, or duplicated by AI. Every tracked path in the repository is listed exactly once. The project owner reassigned the five Phase 1 implementation scaffolds to AI on 2026-11-21; architecture decisions and phase gates remain human-owned.",
+  "phase": 2,
+  "description": "FastASL code ownership manifest. HUMAN-OWNED implementation paths must not be implemented, overwritten, or duplicated by AI. Every tracked path in the repository is listed exactly once. The project owner reassigned the five Phase 1 implementation scaffolds to AI on 2026-11-21; architecture decisions and phase gates remain human-owned. Phase 2 Card 4 adds only the approved keyboard-practice browser modules and tests.",
   "ownership": {
     "HUMAN-OWNED": [
       "docs/REBOOT_DECISIONS.md"
@@ -39,6 +39,13 @@
       "package-lock.json",
       "package.json",
       "public/assets/css/main.css",
+      "public/assets/js/api.js",
+      "public/assets/js/keyboard-input.js",
+      "public/assets/js/race-controller.js",
+      "public/assets/js/race-state.js",
+      "public/assets/js/race.js",
+      "public/assets/js/render.js",
+      "public/assets/js/timer-display.js",
       "public/dashboard.html",
       "public/login.html",
       "public/race.html",
@@ -61,6 +68,12 @@
       "tests/integration/races.test.js",
       "tests/integration/request-errors.test.js",
       "tests/integration/static-exposure.test.js",
+      "tests/unit/browser-api.test.js",
+      "tests/unit/browser-keyboard-input.test.js",
+      "tests/unit/browser-race-controller.test.js",
+      "tests/unit/browser-race-state.test.js",
+      "tests/unit/browser-render.test.js",
+      "tests/unit/browser-timer-display.test.js",
       "tests/unit/check-human-ownership.test.js",
       "tests/unit/env.test.js",
       "tests/unit/logger-redaction.test.js",
