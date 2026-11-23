@@ -49,7 +49,10 @@
       "src/middleware/error-handler.js",
       "src/middleware/not-found.js",
       "src/middleware/public-static.js",
+      "src/races/errors.js",
+      "src/races/in-memory-race-repository.js",
       "src/races/prompts.js",
+      "src/races/race-service.js",
       "src/races/scoring.js",
       "src/routes/health.js",
       "src/server.js",
@@ -59,8 +62,10 @@
       "tests/unit/check-human-ownership.test.js",
       "tests/unit/env.test.js",
       "tests/unit/logger-redaction.test.js",
+      "tests/unit/in-memory-race-repository.test.js",
       "tests/unit/race-contracts.test.js",
       "tests/unit/race-scoring.test.js",
+      "tests/unit/race-service.test.js",
       "tests/unit/server.test.js"
     ],
     "SHARED-INTERFACE": [
