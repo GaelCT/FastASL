@@ -49,6 +49,8 @@
       "src/middleware/error-handler.js",
       "src/middleware/not-found.js",
       "src/middleware/public-static.js",
+      "src/races/prompts.js",
+      "src/races/scoring.js",
       "src/routes/health.js",
       "src/server.js",
       "tests/integration/health.test.js",
@@ -57,9 +59,13 @@
       "tests/unit/check-human-ownership.test.js",
       "tests/unit/env.test.js",
       "tests/unit/logger-redaction.test.js",
+      "tests/unit/race-contracts.test.js",
+      "tests/unit/race-scoring.test.js",
       "tests/unit/server.test.js"
     ],
-    "SHARED-INTERFACE": []
+    "SHARED-INTERFACE": [
+      "src/races/contracts.js"
+    ]
   },
   "notes": {
     "docs/REBOOT_DECISIONS.md": "HUMAN-OWNED: locked architecture decisions; moved from AI-OWNED during the owner-approved Phase 1 reassignment on 2026-11-21.",
