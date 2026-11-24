@@ -4,6 +4,7 @@ on:
   push:
     branches: [main, node, "reboot/**"]
   pull_request:
+  workflow_dispatch:
 
 permissions:
   contents: read
