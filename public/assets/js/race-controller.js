@@ -24,6 +24,7 @@ export function createRaceController({
   let countdown;
   let countdownGeneration = 0;
   let requestController;
+  let expiryRequestOperationId;
   let disposed = false;
 
   function emit() {
@@ -94,7 +95,7 @@ export function createRaceController({
     }
   }
 
-  function completionFailure(error) {
+  function completionFailure(error, expirySubmission = false) {
     if (error instanceof ApiError && error.status === 404) {
       return { message: UNAVAILABLE, kind: "unavailable", retryable: false, expired: false };
     }
@@ -102,6 +103,9 @@ export function createRaceController({
       return { message: ALREADY_COMPLETED, kind: "already-completed", retryable: false, expired: false };
     }
     if (error instanceof ApiError && error.status === 410) {
+      return { message: EXPIRED, kind: "expired", retryable: false, expired: true };
+    }
+    if (expirySubmission) {
       return { message: EXPIRED, kind: "expired", retryable: false, expired: true };
     }
     return { message: FINISH_FAILURE, kind: "completion", retryable: true, expired: false };
@@ -146,6 +150,9 @@ export function createRaceController({
         if (state.status === "active") {
           void finish();
         }
+        if (state.status === "completing" && expiryRequestOperationId === state.operationId) {
+          return;
+        }
         expireRace(state.operationId);
       },
     });
@@ -162,11 +169,15 @@ export function createRaceController({
       return;
     }
 
+    const expirySubmission = state.status === "active" && state.remainingMs === 0;
     dispatch({ type: "COMPLETION_REQUESTED", operationId: state.operationId });
     if (state.status !== "completing") {
       return;
     }
     const operationId = state.operationId;
+    if (expirySubmission) {
+      expiryRequestOperationId = operationId;
+    }
     const raceId = state.race.id;
     const typedText = state.typedText;
     const abortController = new AbortController();
@@ -186,7 +197,7 @@ export function createRaceController({
       if (!operationIsCurrent(operationId) || state.status !== "completing") {
         return;
       }
-      const failure = completionFailure(error);
+      const failure = completionFailure(error, expirySubmission);
       dispatch({ type: "OPERATION_FAILED", operationId, ...failure });
       if (!failure.retryable) {
         stopCountdown();

@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { createRaceController } from "../../public/assets/js/race-controller.js";
 import { ApiError, createApi } from "../../public/assets/js/api.js";
 import { createRaceStore, RACE_STORAGE_KEY } from "../../public/assets/js/race-store.js";
+import { createCountdown } from "../../public/assets/js/timer-display.js";
 
 const RACE_ID = "123e4567-e89b-42d3-a456-426614174000";
 function race(durationSeconds = 30) {
@@ -49,7 +50,7 @@ function memoryStorage() {
   };
 }
 
-function harness({ createRace, completeRace, store, now = () => Date.parse("2026-11-22T12:00:01.000Z") } = {}) {
+function harness({ createRace, completeRace, store, now = () => Date.parse("2026-11-22T12:00:01.000Z"), timer } = {}) {
   const states = [];
   const timers = [];
   const calls = { creates: [], completions: [] };
@@ -70,7 +71,7 @@ function harness({ createRace, completeRace, store, now = () => Date.parse("2026
     store: raceStore,
     now,
     onChange: (state) => states.push(state),
-    timer(options) {
+    timer: timer ?? function(options) {
       const handle = { options, disposed: 0, dispose() { this.disposed += 1; } };
       timers.push(handle);
       return handle;
@@ -121,7 +122,12 @@ test("empty input completes with the server zero result rather than browser scor
 
 for (const durationSeconds of [30, 60]) {
   test(`${durationSeconds}-second timer submits once at zero and enters the safe expired state`, async () => {
-    const h = harness();
+    const h = harness({
+      completeRace: async (...args) => {
+        h.calls.completions.push(args);
+        throw new ApiError("Request failed", { status: 410 });
+      },
+    });
     await h.controller.start(durationSeconds);
     for (const remainingMs of [durationSeconds * 1000, 1_001, 1_000, 999, 1]) {
       h.timers[0].options.onTick(remainingMs);
@@ -144,6 +150,76 @@ for (const durationSeconds of [30, 60]) {
     assert.equal(h.storage.values.has(RACE_STORAGE_KEY), false);
   });
 }
+
+test("a real countdown expiry sends one completion without aborting it in the same tick", async () => {
+  const startedAtMs = Date.parse("2026-11-22T12:00:00.000Z");
+  let currentTime = startedAtMs;
+  let scheduledTick;
+  let completionSignal;
+  let completionRequests = 0;
+  const pendingCompletion = deferred();
+  const h = harness({
+    now: () => currentTime,
+    completeRace: async (_id, _text, { signal }) => {
+      completionRequests += 1;
+      completionSignal = signal;
+      return pendingCompletion.promise;
+    },
+    timer(options) {
+      return createCountdown({
+        ...options,
+        setInterval(callback) {
+          scheduledTick = callback;
+          return 17;
+        },
+        clearInterval() {},
+      });
+    },
+  });
+  await h.controller.start(30);
+  h.controller.setTypedText("expiry text");
+  currentTime += 30_000;
+
+  scheduledTick();
+
+  assert.equal(h.states.at(-1).status, "completing");
+  assert.equal(completionRequests, 1);
+  assert.equal(completionSignal.aborted, false);
+  assert.equal(h.states.at(-1).result, null);
+  assert.equal(h.storage.values.has(RACE_STORAGE_KEY), true);
+
+  pendingCompletion.reject(new ApiError("Request failed", { status: 410 }));
+  await new Promise((resolve) => setImmediate(resolve));
+  await h.controller.finish();
+  assert.equal(completionRequests, 1);
+  assert.equal(h.states.at(-1).status, "error");
+  assert.equal(h.states.at(-1).error.expired, true);
+  assert.equal(h.states.at(-1).result, null);
+  assert.equal(h.storage.values.has(RACE_STORAGE_KEY), false);
+});
+
+test("an offline expiry submission is terminal and cannot be retried after the deadline", async () => {
+  const h = harness({
+    completeRace: async (...args) => {
+      h.calls.completions.push(args);
+      throw new TypeError("offline");
+    },
+  });
+  await h.controller.start(30);
+  h.controller.setTypedText("offline expiry");
+  h.timers[0].options.onTick(0);
+  h.timers[0].options.onExpire();
+  await new Promise((resolve) => setImmediate(resolve));
+
+  assert.equal(h.calls.completions.length, 1);
+  assert.equal(h.states.at(-1).status, "error");
+  assert.equal(h.states.at(-1).error.expired, true);
+  assert.equal(h.states.at(-1).error.retryable, false);
+  assert.equal(h.states.at(-1).result, null);
+  assert.equal(h.storage.values.has(RACE_STORAGE_KEY), false);
+  await h.controller.finish();
+  assert.equal(h.calls.completions.length, 1);
+});
 
 test("start failures require restart while completion network failures remain explicitly retryable", async () => {
   const startFailure = harness({

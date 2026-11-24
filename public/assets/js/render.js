@@ -85,7 +85,7 @@ export function createRaceRenderer(elements) {
       elements.finishButton,
       retryable ? "RETRY FINISH" : (active ? "FINISH EARLY" : "SUBMITTING…"),
     );
-    elements.restartButton.hidden = !(active || completing || results || error);
+    elements.restartButton.hidden = !(state.status === "starting" || active || completing || results || error);
     elements.restartButton.disabled = false;
     elements.duration.disabled = state.status !== "idle";
 

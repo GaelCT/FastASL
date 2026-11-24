@@ -115,6 +115,8 @@ test("starting/completing disable conflicting controls and errors offer delibera
   assert.equal(ui.startButton.disabled, true);
   assert.equal(ui.input.disabled, true);
   assert.equal(ui.duration.disabled, true);
+  assert.equal(ui.restartButton.hidden, false);
+  assert.equal(ui.restartButton.disabled, false);
 
   renderer.render({
     ...initialRaceState(30),
