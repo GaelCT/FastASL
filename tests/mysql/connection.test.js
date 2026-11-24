@@ -14,7 +14,7 @@ function validConfig(overrides = {}) {
     MYSQL_DATABASE: "fastasl_test",
     MYSQL_USER: "fastasl_test",
     MYSQL_PASSWORD: "not-a-real-password",
-    MYSQL_CONNECTION_LIMIT: "2",
+    MYSQL_CONNECTION_LIMIT: "10",
     MYSQL_TEST_ALLOW_DESTRUCTIVE: "true",
     ...overrides,
   };
@@ -44,6 +44,10 @@ test("unsafe or malformed configuration fails clearly", () => {
     [
       { MYSQL_CONNECTION_LIMIT: "0" },
       /MYSQL_CONNECTION_LIMIT must be a positive/,
+    ],
+    [
+      { MYSQL_CONNECTION_LIMIT: "101" },
+      /MYSQL_CONNECTION_LIMIT must be between 1 and 100/,
     ],
   ];
 
@@ -92,4 +96,65 @@ test("connection and pool close when the test callback fails", async () => {
   );
 
   await assert.rejects(capturedConnection.query("SELECT 1"), /closed/i);
+});
+
+test("reset drops schema objects without dropping the database", async () => {
+  await withMysqlTestConnection(async (connection) => {
+    await connection.query(
+      "CREATE TABLE reset_probe (id INT PRIMARY KEY) ENGINE = InnoDB",
+    );
+    await connection.query(
+      "CREATE VIEW reset_probe_view AS SELECT id FROM reset_probe",
+    );
+  });
+
+  await withMysqlTestConnection(async (connection) => {
+    const [schemas] = await connection.query(
+      "SELECT SCHEMA_NAME AS schemaName FROM information_schema.SCHEMATA WHERE SCHEMA_NAME = ?",
+      ["fastasl_test"],
+    );
+    const [objects] = await connection.query(
+      "SELECT TABLE_NAME AS tableName FROM information_schema.TABLES WHERE TABLE_SCHEMA = ?",
+      ["fastasl_test"],
+    );
+
+    assert.deepEqual(schemas, [{ schemaName: "fastasl_test" }]);
+    assert.deepEqual(objects, []);
+  });
+});
+
+test("advisory lock rejects a concurrent suite and is released afterward", async () => {
+  let markFirstStarted;
+  const firstStarted = new Promise((resolve) => {
+    markFirstStarted = resolve;
+  });
+  let allowFirstToFinish;
+  const firstCanFinish = new Promise((resolve) => {
+    allowFirstToFinish = resolve;
+  });
+
+  const firstRun = withMysqlTestConnection(async () => {
+    markFirstStarted();
+    await firstCanFinish;
+  });
+  await firstStarted;
+
+  let secondCallbackRan = false;
+  try {
+    await assert.rejects(
+      withMysqlTestConnection(async () => {
+        secondCallbackRan = true;
+      }),
+      /advisory lock fastasl_test is already held/,
+    );
+    assert.equal(secondCallbackRan, false);
+  } finally {
+    allowFirstToFinish();
+    await firstRun;
+  }
+
+  await withMysqlTestConnection(async (connection) => {
+    const [rows] = await connection.query("SELECT 1 AS value");
+    assert.equal(rows[0].value, 1);
+  });
 });

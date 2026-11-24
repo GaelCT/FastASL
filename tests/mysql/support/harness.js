@@ -64,17 +64,57 @@ export function validateMysqlTestConfig(env = process.env) {
     connectionLimit: readPositiveInteger(
       env.MYSQL_CONNECTION_LIMIT,
       "MYSQL_CONNECTION_LIMIT",
+      100,
     ),
   };
 }
 
+function quoteIdentifier(identifier) {
+  return `\`${identifier.replaceAll("`", "``")}\``;
+}
+
 async function resetTestDatabase(connection) {
-  // TEST_DATABASE is validated above; never interpolate a caller-provided name.
-  await connection.query(`DROP DATABASE IF EXISTS \`${TEST_DATABASE}\``);
-  await connection.query(
-    `CREATE DATABASE \`${TEST_DATABASE}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci`,
-  );
-  await connection.query(`USE \`${TEST_DATABASE}\``);
+  // Reset objects only: the provisioned test database and its grants survive.
+  await connection.query("SET FOREIGN_KEY_CHECKS = 0");
+  try {
+    const [objects] = await connection.query(
+      `SELECT TABLE_NAME AS tableName, TABLE_TYPE AS tableType
+        FROM information_schema.TABLES
+        WHERE TABLE_SCHEMA = ?
+        ORDER BY TABLE_NAME`,
+      [TEST_DATABASE],
+    );
+
+    for (const object of objects) {
+      if (object.tableType !== "VIEW") {
+        continue;
+      }
+      await connection.query(
+        `DROP VIEW IF EXISTS ${quoteIdentifier(TEST_DATABASE)}.${quoteIdentifier(object.tableName)}`,
+      );
+    }
+    for (const object of objects) {
+      if (object.tableType !== "BASE TABLE") {
+        continue;
+      }
+      await connection.query(
+        `DROP TABLE IF EXISTS ${quoteIdentifier(TEST_DATABASE)}.${quoteIdentifier(object.tableName)}`,
+      );
+    }
+  } finally {
+    await connection.query("SET FOREIGN_KEY_CHECKS = 1");
+  }
+}
+
+async function acquireTestLock(connection) {
+  const [rows] = await connection.query("SELECT GET_LOCK(?, 0) AS acquired", [
+    TEST_DATABASE,
+  ]);
+  if (rows[0].acquired !== 1) {
+    throw new Error(
+      "MySQL test advisory lock fastasl_test is already held; concurrent test suites are not allowed.",
+    );
+  }
 }
 
 export async function withMysqlTestConnection(callback, env = process.env) {
@@ -92,6 +132,7 @@ export async function withMysqlTestConnection(callback, env = process.env) {
   });
 
   let connection;
+  let lockAcquired = false;
   try {
     try {
       connection = await pool.getConnection();
@@ -103,10 +144,18 @@ export async function withMysqlTestConnection(callback, env = process.env) {
       );
     }
 
+    await acquireTestLock(connection);
+    lockAcquired = true;
     await resetTestDatabase(connection);
     return await callback(connection, config);
   } finally {
-    connection?.release();
-    await pool.end();
+    try {
+      if (lockAcquired) {
+        await connection.query("SELECT RELEASE_LOCK(?)", [TEST_DATABASE]);
+      }
+    } finally {
+      connection?.release();
+      await pool.end();
+    }
   }
 }

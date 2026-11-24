@@ -76,10 +76,10 @@ GRANT ALL PRIVILEGES ON fastasl_test.*
 ```
 
 `DROP`, `CREATE`, and `ALTER` privileges on `fastasl_test` are intentional: the
-smoke harness drops and recreates that one database for a clean run. Do not grant
-this application account privileges on any other database. If using `::1`
-instead of `127.0.0.1`, create a matching narrowly scoped MySQL account for that
-loopback address.
+smoke harness drops tables and views inside that database for a clean run while
+preserving the database itself and its grants. Do not grant this application
+account privileges on any other database. If using `::1` instead of `127.0.0.1`,
+create a matching narrowly scoped MySQL account for that loopback address.
 
 Check the server without exposing the password in shell history:
 
@@ -113,15 +113,15 @@ MYSQL_PORT=3306
 MYSQL_DATABASE=fastasl_test
 MYSQL_USER=fastasl_test
 MYSQL_PASSWORD=<the-local-only-test-password>
-MYSQL_CONNECTION_LIMIT=2
+MYSQL_CONNECTION_LIMIT=10
 MYSQL_TEST_ALLOW_DESTRUCTIVE=true
 ```
 
 `MYSQL_HOST` must be the literal loopback address `127.0.0.1` or `::1`.
 `MYSQL_PORT` must be from 1 through 65535, and `MYSQL_CONNECTION_LIMIT` must be
-a positive integer. The database, user, password, connection limit, and
-destructive-test opt-in are all required; the example deliberately ships with
-an empty password and the destructive safeguard set to `false`.
+an integer from 1 through 100. The database, user, password, connection limit,
+and destructive-test opt-in are all required; the example deliberately ships
+with an empty password and the destructive safeguard set to `false`.
 
 Node loads `.env.test` only for `test:mysql`. Values already present in the
 process environment take precedence, so inspect the shell environment if a
@@ -145,17 +145,21 @@ npm run check
 `check` runs lint, the database-free tests, and then `test:mysql`; a missing or
 unavailable MySQL service therefore fails the full gate.
 
-The harness acquires one dedicated connection from a bounded pool and closes the
-connection and pool in `finally`, on success and failure. A failed callback is
-rethrown rather than hidden. A service connection failure identifies the
-loopback host, port, and database without printing the password.
+The harness acquires one dedicated connection from a bounded pool, then acquires
+the server-wide `fastasl_test` advisory lock with a zero-second timeout. It holds
+the lock through the object reset and callback, and releases the lock,
+connection, and pool in `finally`, on success and failure. A concurrent suite on
+the same MySQL service fails immediately with a held-lock error rather than
+resetting objects underneath the active suite. A failed callback is rethrown
+rather than hidden. A service connection failure identifies the loopback host,
+port, and database without printing the password.
 
 Missing variables, a non-test `NODE_ENV`, a database other than `fastasl_test`,
 a non-loopback host, the `root` user, malformed numeric values, or a disabled
 destructive safeguard fail before any reset. There is no skip or fake fallback.
-Only run one local worktree's MySQL suite at a time against a given MySQL
-service; serial test-file execution does not make two separate worktrees safe
-to reset the same database concurrently.
+A second local worktree attempting to run the suite against the same MySQL
+service receives the held-lock failure and never reaches the reset or callback.
+Wait for the active suite to finish, then rerun the failed command.
 
 After testing, stop the native service through the lifecycle command above if it
 is not needed. To remove the disposable local objects entirely, a person can use
