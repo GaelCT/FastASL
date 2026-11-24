@@ -13,6 +13,8 @@ const REQUIRED_VARIABLES = [
   "MYSQL_TEST_ALLOW_DESTRUCTIVE",
 ];
 
+let activeSuiteLock;
+
 function readPositiveInteger(value, name, maximum = Number.MAX_SAFE_INTEGER) {
   if (!/^[1-9]\d*$/.test(value)) {
     throw new Error(`${name} must be a positive decimal integer.`);
@@ -69,6 +71,32 @@ export function validateMysqlTestConfig(env = process.env) {
   };
 }
 
+function createTestPool(config) {
+  return mysql.createPool({
+    host: config.host,
+    port: config.port,
+    database: config.database,
+    user: config.user,
+    password: config.password,
+    connectionLimit: config.connectionLimit,
+    waitForConnections: true,
+    timezone: "Z",
+    connectTimeout: 5000,
+  });
+}
+
+async function getTestConnection(pool, config) {
+  try {
+    return await pool.getConnection();
+  } catch (error) {
+    const reason = error.code || error.message;
+    throw new Error(
+      `Unable to connect to real MySQL at ${config.host}:${config.port}/${config.database}: ${reason}. Check the local service and .env.test.`,
+      { cause: error },
+    );
+  }
+}
+
 function quoteIdentifier(identifier) {
   return `\`${identifier.replaceAll("`", "``")}\``;
 }
@@ -117,41 +145,64 @@ async function acquireTestLock(connection) {
   }
 }
 
+async function releaseTestLock(connection) {
+  await connection.query("SELECT RELEASE_LOCK(?)", [TEST_DATABASE]);
+}
+
+export async function acquireMysqlTestSuiteLock(env = process.env) {
+  if (activeSuiteLock) {
+    throw new Error("This process already holds the MySQL test suite lock.");
+  }
+
+  const config = validateMysqlTestConfig(env);
+  const pool = createTestPool(config);
+  let connection;
+  try {
+    connection = await getTestConnection(pool, config);
+    await acquireTestLock(connection);
+  } catch (error) {
+    connection?.release();
+    await pool.end();
+    throw error;
+  }
+
+  const suiteLock = { connection, pool };
+  activeSuiteLock = suiteLock;
+  let released = false;
+
+  return async () => {
+    if (released) {
+      return;
+    }
+    released = true;
+    try {
+      await releaseTestLock(connection);
+    } finally {
+      activeSuiteLock = undefined;
+      connection.release();
+      await pool.end();
+    }
+  };
+}
+
 export async function withMysqlTestConnection(callback, env = process.env) {
   const config = validateMysqlTestConfig(env);
-  const pool = mysql.createPool({
-    host: config.host,
-    port: config.port,
-    database: config.database,
-    user: config.user,
-    password: config.password,
-    connectionLimit: config.connectionLimit,
-    waitForConnections: true,
-    timezone: "Z",
-    connectTimeout: 5000,
-  });
+  const pool = createTestPool(config);
 
   let connection;
   let lockAcquired = false;
   try {
-    try {
-      connection = await pool.getConnection();
-    } catch (error) {
-      const reason = error.code || error.message;
-      throw new Error(
-        `Unable to connect to real MySQL at ${config.host}:${config.port}/${config.database}: ${reason}. Check the local service and .env.test.`,
-        { cause: error },
-      );
+    connection = await getTestConnection(pool, config);
+    if (!activeSuiteLock) {
+      await acquireTestLock(connection);
+      lockAcquired = true;
     }
-
-    await acquireTestLock(connection);
-    lockAcquired = true;
     await resetTestDatabase(connection);
     return await callback(connection, config);
   } finally {
     try {
       if (lockAcquired) {
-        await connection.query("SELECT RELEASE_LOCK(?)", [TEST_DATABASE]);
+        await releaseTestLock(connection);
       }
     } finally {
       connection?.release();

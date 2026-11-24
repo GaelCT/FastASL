@@ -145,12 +145,14 @@ npm run check
 `check` runs lint, the database-free tests, and then `test:mysql`; a missing or
 unavailable MySQL service therefore fails the full gate.
 
-The harness acquires one dedicated connection from a bounded pool, then acquires
-the server-wide `fastasl_test` advisory lock with a zero-second timeout. It holds
-the lock through the object reset and callback, and releases the lock,
-connection, and pool in `finally`, on success and failure. A concurrent suite on
-the same MySQL service fails immediately with a held-lock error rather than
-resetting objects underneath the active suite. A failed callback is rethrown
+The suite acquires the server-wide `fastasl_test` advisory lock with a
+zero-second timeout in its `before` hook and holds it until its `after` hook.
+Each test callback uses a dedicated connection from a bounded pool; the helper
+also acquires the same lock itself when used outside the suite. Connections and
+pools close in `finally`, on success and failure. A concurrent suite on the same
+MySQL service fails immediately in its `before` hook, before any reset or test
+callback, rather than resetting objects underneath the active suite. The active
+suite continues and releases its lock afterward. A failed callback is rethrown
 rather than hidden. A service connection failure identifies the loopback host,
 port, and database without printing the password.
 

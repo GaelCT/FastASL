@@ -1,10 +1,31 @@
 import assert from "node:assert/strict";
-import test from "node:test";
+import { execFile } from "node:child_process";
+import test, { after, before } from "node:test";
+import { promisify } from "node:util";
 
 import {
+  acquireMysqlTestSuiteLock,
   validateMysqlTestConfig,
   withMysqlTestConnection,
 } from "./support/harness.js";
+
+const execFileAsync = promisify(execFile);
+let releaseSuiteLock;
+
+before(async () => {
+  releaseSuiteLock = await acquireMysqlTestSuiteLock();
+});
+
+after(async () => {
+  if (!releaseSuiteLock) {
+    return;
+  }
+  await releaseSuiteLock();
+  await withMysqlTestConnection(async (connection) => {
+    const [rows] = await connection.query("SELECT 1 AS value");
+    assert.equal(rows[0].value, 1);
+  });
+});
 
 function validConfig(overrides = {}) {
   return {
@@ -123,35 +144,29 @@ test("reset drops schema objects without dropping the database", async () => {
   });
 });
 
-test("advisory lock rejects a concurrent suite and is released afterward", async () => {
-  let markFirstStarted;
-  const firstStarted = new Promise((resolve) => {
-    markFirstStarted = resolve;
-  });
-  let allowFirstToFinish;
-  const firstCanFinish = new Promise((resolve) => {
-    allowFirstToFinish = resolve;
-  });
+test("a concurrent suite fails before its callback while this suite continues", async () => {
+  const harnessUrl = new URL("./support/harness.js", import.meta.url).href;
+  const program = `
+    import { withMysqlTestConnection } from ${JSON.stringify(harnessUrl)};
+    await withMysqlTestConnection(async () => {
+      console.log("concurrent suite callback ran");
+    });
+  `;
 
-  const firstRun = withMysqlTestConnection(async () => {
-    markFirstStarted();
-    await firstCanFinish;
-  });
-  await firstStarted;
-
-  let secondCallbackRan = false;
-  try {
-    await assert.rejects(
-      withMysqlTestConnection(async () => {
-        secondCallbackRan = true;
-      }),
-      /advisory lock fastasl_test is already held/,
-    );
-    assert.equal(secondCallbackRan, false);
-  } finally {
-    allowFirstToFinish();
-    await firstRun;
-  }
+  await assert.rejects(
+    execFileAsync(process.execPath, ["--input-type=module", "--eval", program], {
+      env: process.env,
+    }),
+    (error) => {
+      assert.equal(error.code, 1);
+      assert.match(
+        error.stderr,
+        /advisory lock fastasl_test is already held/,
+      );
+      assert.doesNotMatch(error.stdout, /concurrent suite callback ran/);
+      return true;
+    },
+  );
 
   await withMysqlTestConnection(async (connection) => {
     const [rows] = await connection.query("SELECT 1 AS value");
