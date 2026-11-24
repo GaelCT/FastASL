@@ -33,6 +33,7 @@ function elements() {
     startButton: element(),
     finishButton: element(),
     restartButton: element(),
+    storageNotice: element(),
     duration: element(),
   };
 }
@@ -114,6 +115,8 @@ test("starting/completing disable conflicting controls and errors offer delibera
   assert.equal(ui.startButton.disabled, true);
   assert.equal(ui.input.disabled, true);
   assert.equal(ui.duration.disabled, true);
+  assert.equal(ui.restartButton.hidden, false);
+  assert.equal(ui.restartButton.disabled, false);
 
   renderer.render({
     ...initialRaceState(30),
@@ -127,4 +130,46 @@ test("starting/completing disable conflicting controls and errors offer delibera
   assert.equal(ui.restartButton.hidden, false);
   assert.equal(ui.startButton.hidden, true);
   assert.equal(ui.finishButton.hidden, true);
+});
+
+
+test("pending and retryable completion keep text immutable while restart remains available", () => {
+  const ui = elements();
+  const renderer = createRaceRenderer(ui);
+  const completing = {
+    ...initialRaceState(30),
+    status: "completing",
+    operationId: 1,
+    race,
+    typedText: "locked <b>text</b>",
+    remainingMs: 10_000,
+  };
+  renderer.render(completing);
+  assert.equal(ui.input.disabled, true);
+  assert.equal(ui.finishButton.disabled, true);
+  assert.equal(ui.restartButton.disabled, false);
+  assert.equal(ui.restartButton.hidden, false);
+  assert.equal(ui.practicePanel.hidden, false);
+
+  renderer.render({
+    ...completing,
+    status: "error",
+    error: { message: "Retry the same text", retryable: true, expired: false },
+  });
+  assert.equal(ui.input.disabled, true);
+  assert.equal(ui.input.value, "locked <b>text</b>");
+  assert.equal(ui.finishButton.disabled, false);
+  assert.equal(ui.finishButton.textContent, "RETRY FINISH");
+  assert.equal(ui.restartButton.disabled, false);
+  assert.equal(ui.results.hidden, true);
+});
+
+test("storage warnings use the fixed polite notice without affecting race results", () => {
+  const ui = elements();
+  const renderer = createRaceRenderer(ui);
+  renderer.render({ ...initialRaceState(30), storageUnavailable: true });
+  assert.equal(ui.storageNotice.hidden, false);
+  assert.match(ui.storageNotice.textContent, /will not survive reload/i);
+  renderer.render({ ...initialRaceState(30), storageUnavailable: false });
+  assert.equal(ui.storageNotice.hidden, true);
 });

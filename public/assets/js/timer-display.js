@@ -21,6 +21,7 @@ function timestampMs(value, name) {
 export function createCountdown({
   expiresAt,
   serverNow,
+  clockOffsetMs,
   now = Date.now,
   setInterval: schedule = globalThis.setInterval,
   clearInterval: cancel = globalThis.clearInterval,
@@ -29,7 +30,9 @@ export function createCountdown({
   intervalMs = 250,
 }) {
   const expiresAtMs = timestampMs(expiresAt, "expiresAt");
-  const serverOffsetMs = timestampMs(serverNow, "serverNow") - now();
+  const serverOffsetMs = clockOffsetMs === undefined
+    ? timestampMs(serverNow, "serverNow") - now()
+    : timestampMs(clockOffsetMs, "clockOffsetMs");
   let disposed = false;
   let expired = false;
   let intervalId;

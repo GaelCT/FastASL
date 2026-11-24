@@ -228,6 +228,8 @@ test("creation rejects malformed success DTOs, unknown fields, and client/server
     { ...race(), prompt: "" },
     { ...race(), durationSeconds: 60 },
     { ...race(), startedAt: "not-a-date" },
+    { ...race(), serverNow: "2026-11-22T12:00:00.001Z" },
+    { ...race(), expiresAt: "2026-11-22T12:00:29.999Z" },
     { ...race(), inputMethod: "camera" },
     { ...race(), ranked: true },
   ];

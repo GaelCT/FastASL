@@ -1,6 +1,7 @@
 import { createApi } from "./api.js";
 import { attachKeyboardInput } from "./keyboard-input.js";
 import { createRaceController } from "./race-controller.js";
+import { createRaceStore } from "./race-store.js";
 import { createRaceRenderer } from "./render.js";
 
 function element(id) {
@@ -32,10 +33,12 @@ const elements = {
   startButton: element("start-race"),
   finishButton: element("finish-race"),
   restartButton: element("restart-race"),
+  storageNotice: element("storage-notice"),
 };
 const renderer = createRaceRenderer(elements);
 const controller = createRaceController({
   api: createApi(),
+  store: createRaceStore(),
   durationSeconds,
   onChange: renderer.render,
 });
@@ -66,3 +69,4 @@ elements.startButton.addEventListener("click", start);
 elements.finishButton.addEventListener("click", finish);
 elements.restartButton.addEventListener("click", restart);
 window.addEventListener("pagehide", dispose);
+controller.resume();
