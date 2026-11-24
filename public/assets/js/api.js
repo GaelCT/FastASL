@@ -125,7 +125,7 @@ function isRaceId(value) {
   return typeof value === "string" && RACE_ID_PATTERN.test(value);
 }
 
-function validRace(race, requestedDuration) {
+export function isCreationRaceDto(race, requestedDuration) {
   const keys = [
     "id",
     "prompt",
@@ -136,17 +136,26 @@ function validRace(race, requestedDuration) {
     "inputMethod",
     "ranked",
   ];
-  return hasExactKeys(race, keys) &&
-    isRaceId(race.id) &&
-    typeof race.prompt === "string" &&
-    race.prompt.length > 0 &&
-    race.prompt.length <= 2048 &&
-    race.durationSeconds === requestedDuration &&
-    isTimestamp(race.startedAt) &&
-    isTimestamp(race.expiresAt) &&
-    isTimestamp(race.serverNow) &&
-    race.inputMethod === "keyboard" &&
-    race.ranked === false;
+  const validDuration = requestedDuration === undefined
+    ? (race?.durationSeconds === 30 || race?.durationSeconds === 60)
+    : race?.durationSeconds === requestedDuration;
+  if (!hasExactKeys(race, keys) ||
+      !isRaceId(race.id) ||
+      typeof race.prompt !== "string" ||
+      race.prompt.length === 0 ||
+      race.prompt.length > 2048 ||
+      !validDuration ||
+      !isTimestamp(race.startedAt) ||
+      !isTimestamp(race.expiresAt) ||
+      !isTimestamp(race.serverNow) ||
+      race.inputMethod !== "keyboard" ||
+      race.ranked !== false) {
+    return false;
+  }
+
+  const startedAtMs = Date.parse(race.startedAt);
+  return Date.parse(race.serverNow) === startedAtMs &&
+    Date.parse(race.expiresAt) === startedAtMs + race.durationSeconds * 1000;
 }
 
 function validResult(result, requestedRaceId) {
@@ -227,7 +236,7 @@ export function createApi({
         body: { durationSeconds },
       });
       if (!hasExactKeys(payload, ["race"]) ||
-          !validRace(payload.race, durationSeconds)) {
+          !isCreationRaceDto(payload.race, durationSeconds)) {
         throw new ApiError("Invalid server response", { status: 201 });
       }
       return payload.race;

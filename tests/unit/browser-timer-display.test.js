@@ -55,6 +55,24 @@ test("countdown derives server time from the initial offset and ticks every 250m
   clock.countdown.dispose();
 });
 
+test("a stored clock offset resumes without renegotiating server time", () => {
+  let currentTime = 10_000;
+  const ticks = [];
+  const countdown = createCountdown({
+    expiresAt: 42_000,
+    clockOffsetMs: -5_000,
+    now: () => currentTime,
+    setInterval() { return 1; },
+    clearInterval() {},
+    onTick: (remaining) => ticks.push(remaining),
+  });
+  assert.deepEqual(ticks, [37_000]);
+  currentTime += 1_000;
+  countdown.tick();
+  assert.deepEqual(ticks, [37_000, 36_000]);
+  countdown.dispose();
+});
+
 test("a long wall-clock jump clamps to zero and expires exactly once", () => {
   const clock = harness();
   clock.advance(120_000);

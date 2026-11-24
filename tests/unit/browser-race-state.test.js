@@ -17,8 +17,10 @@ test("initial state and start transitions preserve operation identity", () => {
     race: null,
     typedText: "",
     remainingMs: 0,
+    clockOffsetMs: 0,
     result: null,
     error: null,
+    storageUnavailable: false,
   });
   const starting = reduceRaceState(idle, { type: "START_REQUESTED", durationSeconds: 30 });
   assert.equal(starting.status, "starting");
@@ -73,6 +75,69 @@ test("stale async events cannot overwrite a restarted race", () => {
   );
 });
 
+test("resume restores the active snapshot and local expiry invalidates pending completion", () => {
+  const resumed = reduceRaceState(initialRaceState(30), {
+    type: "RESUME_SUCCEEDED",
+    race,
+    typedText: "same text",
+    clockOffsetMs: -250,
+    remainingMs: 12_000,
+  });
+  assert.equal(resumed.status, "active");
+  assert.equal(resumed.operationId, 1);
+  assert.equal(resumed.typedText, "same text");
+  assert.equal(resumed.clockOffsetMs, -250);
+  assert.equal(resumed.remainingMs, 12_000);
+
+  const completing = reduceRaceState(resumed, {
+    type: "COMPLETION_REQUESTED",
+    operationId: 1,
+  });
+  const expired = reduceRaceState(completing, {
+    type: "RACE_EXPIRED",
+    operationId: 1,
+    message: "Race expired",
+  });
+  assert.equal(expired.status, "error");
+  assert.equal(expired.remainingMs, 0);
+  assert.equal(expired.error.expired, true);
+  assert.equal(expired.error.retryable, false);
+  assert.equal(reduceRaceState(expired, {
+    type: "COMPLETION_SUCCEEDED",
+    operationId: 1,
+    result: { wpm: 999 },
+  }), expired);
+});
+
+test("manual completion retry keeps identical text and changes operation identity", () => {
+  let state = reduceRaceState(initialRaceState(30), { type: "START_REQUESTED", durationSeconds: 30 });
+  state = reduceRaceState(state, { type: "START_SUCCEEDED", operationId: 1, race });
+  state = reduceRaceState(state, { type: "TEXT_CHANGED", typedText: "locked text" });
+  state = reduceRaceState(state, { type: "COMPLETION_REQUESTED", operationId: 1 });
+  state = reduceRaceState(state, {
+    type: "OPERATION_FAILED",
+    operationId: 1,
+    message: "Retry",
+    kind: "completion",
+    retryable: true,
+  });
+  assert.equal(state.status, "error");
+  assert.equal(state.typedText, "locked text");
+  state = reduceRaceState(state, { type: "TIMER_TICK", operationId: 1, remainingMs: 5_000 });
+  assert.equal(state.remainingMs, 5_000);
+  assert.equal(reduceRaceState(state, { type: "TEXT_CHANGED", typedText: "edit" }), state);
+
+  const retrying = reduceRaceState(state, { type: "COMPLETION_REQUESTED", operationId: 1 });
+  assert.equal(retrying.status, "completing");
+  assert.equal(retrying.operationId, 2);
+  assert.equal(retrying.typedText, "locked text");
+  assert.equal(reduceRaceState(retrying, {
+    type: "COMPLETION_SUCCEEDED",
+    operationId: 1,
+    result: { wpm: 1 },
+  }), retrying);
+});
+
 test("invalid lifecycle events are inert and restart clears errors/results", () => {
   const idle = initialRaceState();
   assert.equal(reduceRaceState(idle, { type: "TEXT_CHANGED", typedText: "ignored" }), idle);
@@ -84,7 +149,12 @@ test("invalid lifecycle events are inert and restart clears errors/results", () 
     message: "Safe failure",
   });
   assert.equal(error.status, "error");
-  assert.deepEqual(error.error, { message: "Safe failure", expired: false });
+  assert.deepEqual(error.error, {
+    message: "Safe failure",
+    expired: false,
+    kind: "start",
+    retryable: false,
+  });
   const restarted = reduceRaceState(error, { type: "RESTART" });
   assert.equal(restarted.status, "idle");
   assert.equal(restarted.error, null);

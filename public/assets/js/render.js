@@ -51,8 +51,14 @@ export function createRaceRenderer(elements) {
     const completing = state.status === "completing";
     const results = state.status === "results";
     const error = state.status === "error";
+    const retryable = error && state.error?.retryable === true;
 
     renderStatus(elements.status, state);
+    setText(
+      elements.storageNotice,
+      "Practice text will not survive reload because browser storage is unavailable.",
+    );
+    elements.storageNotice.hidden = !state.storageUnavailable;
     renderPrompt(
       elements.prompt,
       state.race?.prompt ?? "Your server-selected prompt will appear here.",
@@ -67,16 +73,20 @@ export function createRaceRenderer(elements) {
       elements.input.value = state.typedText;
     }
     elements.input.disabled = !active;
-    elements.practicePanel.hidden = !(active || completing);
+    elements.practicePanel.hidden = !(active || completing || retryable);
     elements.results.hidden = !results;
     renderResults(elements, state.result);
 
     elements.startButton.disabled = state.status === "starting";
     elements.startButton.hidden = !(state.status === "idle" || state.status === "starting");
-    elements.finishButton.hidden = !(active || completing);
-    elements.finishButton.disabled = !active;
+    elements.finishButton.hidden = !(active || completing || retryable);
+    elements.finishButton.disabled = !(active || retryable);
+    setText(
+      elements.finishButton,
+      retryable ? "RETRY FINISH" : (active ? "FINISH EARLY" : "SUBMITTING…"),
+    );
     elements.restartButton.hidden = !(active || completing || results || error);
-    elements.restartButton.disabled = completing;
+    elements.restartButton.disabled = false;
     elements.duration.disabled = state.status !== "idle";
 
     if (previousStatus !== state.status) {
